@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { Product, FilterOptions } from '../types';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
+import { ImagePreviewModal } from './ImagePreviewModal';
+import { ZoomIn } from 'lucide-react';
 import { formatRupiah, saveProducts, formatPhotoUrl, deleteProduct } from '../lib/storage';
 
 interface ProductCatalogProps {
@@ -43,6 +45,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isNewProductModal, setIsNewProductModal] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<{ id: string; name: string } | null>(null);
+  const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
   const [showEditMenu, setShowEditMenu] = useState(false);
 
   // Dynamic Categories from Products list
@@ -366,26 +369,41 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
             >
               <div>
                 {/* Photo Header */}
-                <div className="aspect-square w-full rounded-xl bg-zinc-50 mb-3 overflow-hidden border border-zinc-100 relative group/img">
+                <div 
+                  onClick={() => product.photoUrl && setPreviewProduct(product)}
+                  className={`aspect-square w-full rounded-xl bg-zinc-50 mb-3 overflow-hidden border border-zinc-100 relative group/img ${
+                    product.photoUrl ? 'cursor-pointer' : ''
+                  }`}
+                  title={product.photoUrl ? 'Klik untuk memperbesar gambar produk' : undefined}
+                >
                   {product.photoUrl ? (
-                    <img
-                      src={formatPhotoUrl(product.photoUrl)}
-                      alt={product.name}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover object-center group-hover/img:scale-105 transition duration-300"
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        if (!target.dataset.triedFallback && product.photoUrl) {
-                          target.dataset.triedFallback = 'true';
-                          const idMatch = product.photoUrl.match(/([a-zA-Z0-9_-]{15,})/);
-                          if (idMatch) {
-                            target.src = `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w800`;
-                            return;
+                    <>
+                      <img
+                        src={formatPhotoUrl(product.photoUrl)}
+                        alt={product.name}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover object-center group-hover/img:scale-105 transition duration-300"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (!target.dataset.triedFallback && product.photoUrl) {
+                            target.dataset.triedFallback = 'true';
+                            const idMatch = product.photoUrl.match(/([a-zA-Z0-9_-]{15,})/);
+                            if (idMatch) {
+                              target.src = `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w800`;
+                              return;
+                            }
                           }
-                        }
-                        target.style.display = 'none';
-                      }}
-                    />
+                          target.style.display = 'none';
+                        }}
+                      />
+                      {/* Zoom Icon Overlay on Hover */}
+                      <div className="absolute inset-0 bg-zinc-950/40 opacity-0 group-hover/img:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center text-white p-2 text-center pointer-events-none">
+                        <div className="p-2.5 rounded-full bg-black/60 backdrop-blur-xs mb-1">
+                          <ZoomIn className="w-5 h-5" />
+                        </div>
+                        <span className="text-[11px] font-bold">Klik untuk Perbesar</span>
+                      </div>
+                    </>
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-zinc-400 p-4 text-center">
                       <ImageIcon className="w-8 h-8 opacity-40 mb-1" />
@@ -832,6 +850,16 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
         confirmButtonText="Hapus Produk"
         onConfirm={confirmDeleteProduct}
         onCancel={() => setDeletingProduct(null)}
+      />
+      {/* Image Preview / Zoom Modal */}
+      <ImagePreviewModal
+        isOpen={!!previewProduct}
+        photoUrl={previewProduct?.photoUrl || null}
+        productName={previewProduct?.name}
+        category={previewProduct?.category}
+        barcode1={previewProduct?.barcode1}
+        barcode2={previewProduct?.barcode2}
+        onClose={() => setPreviewProduct(null)}
       />
     </div>
   );
