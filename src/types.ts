@@ -8,6 +8,8 @@ export interface Product {
   name: string;
   category: string;
   stock: number;
+  totalIncoming?: number;
+  totalOutgoing?: number;
   minStock: number;
   price: number;
   costPrice: number;
