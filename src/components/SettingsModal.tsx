@@ -223,7 +223,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div>
             <h2 className="text-lg font-bold text-zinc-800">Pengaturan Google Spreadsheet & Data Produk</h2>
             <p className="text-xs text-zinc-500">
-              Konfigurasi tautan CSV dipublikasikan dari Google Sheets untuk impor data katalog produk.
+              Mendukung tautan Google Spreadsheet langsung (Link Edit/Share) maupun tautan CSV dipublikasikan.
             </p>
           </div>
         </div>
@@ -231,7 +231,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Spreadsheet URL Input Card */}
         <div className="space-y-3">
           <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider">
-            Tautan Publikasi CSV Google Spreadsheet
+            Tautan Google Spreadsheet (URL Edit / Share / CSV)
           </label>
 
           <div className="space-y-2">
@@ -239,7 +239,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               type="text"
               value={sheetUrl}
               onChange={(e) => setSheetUrl(e.target.value)}
-              placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv"
+              placeholder="https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/edit?gid=638369466"
               className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
             />
 

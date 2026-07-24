@@ -3,7 +3,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import Papa from 'papaparse';
 
-const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXSy8WDlm3ijk4oZqwkOCqtUET6N7BOPWhRHtDocecqSNgcKWZdlY77h6A0IoEe-ykHMPEUy-3KZ3y/pub?gid=638369466&single=true&output=csv';
+const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/export?format=csv&gid=638369466';
 
 interface CSVProductRow {
   id: string;
@@ -11,8 +11,41 @@ interface CSVProductRow {
   barcode2: string;
   photoUrl: string;
   name: string;
+  price?: number;
   category?: string;
   initialStock?: number;
+}
+
+export function normalizeGoogleSheetCsvUrl(url: string): string {
+  if (!url) return DEFAULT_SHEET_URL;
+  const trimmed = url.trim();
+
+  if (!trimmed.includes('docs.google.com/spreadsheets/d/')) {
+    return trimmed;
+  }
+
+  // Handle published web sheet
+  if (trimmed.includes('/spreadsheets/d/e/')) {
+    if (!trimmed.includes('output=csv')) {
+      return trimmed.includes('?') ? `${trimmed}&output=csv` : `${trimmed}?output=csv`;
+    }
+    return trimmed;
+  }
+
+  // Handle direct Google Spreadsheet edit / view / share link
+  const idMatch = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (idMatch && idMatch[1]) {
+    const spreadsheetId = idMatch[1];
+    let gid = '';
+    const gidMatch = trimmed.match(/[?&]gid=([0-9]+)/) || trimmed.match(/#gid=([0-9]+)/);
+    if (gidMatch && gidMatch[1]) {
+      gid = gidMatch[1];
+    }
+
+    return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv${gid ? `&gid=${gid}` : ''}`;
+  }
+
+  return trimmed;
 }
 
 function processGoogleDriveUrl(url: string): string {
@@ -86,7 +119,8 @@ async function startServer() {
   // Fetch CSV Endpoint
   app.post('/api/sync-csv', async (req, res) => {
     try {
-      const sheetUrl = req.body?.url || DEFAULT_SHEET_URL;
+      const rawUrl = req.body?.url || DEFAULT_SHEET_URL;
+      const sheetUrl = normalizeGoogleSheetCsvUrl(rawUrl);
       
       const response = await fetch(sheetUrl, {
         headers: {
@@ -144,6 +178,8 @@ async function startServer() {
         const barcode2 = (row[1] || '').trim();
         const photoUrlRaw = (row[2] || '').trim();
         const name = (row[3] || '').trim();
+        const priceStr = (row[4] || '').replace(/[^0-9]/g, '');
+        const parsedPrice = priceStr ? parseInt(priceStr, 10) : 0;
 
         // Skip completely empty rows
         if (!barcode1 && !barcode2 && !name) continue;
@@ -156,7 +192,8 @@ async function startServer() {
           barcode1: barcode1,
           barcode2: barcode2,
           photoUrl: processedPhotoUrl,
-          name: name || `Produk ${i}`
+          name: name || `Produk ${i}`,
+          price: parsedPrice
         });
       }
 

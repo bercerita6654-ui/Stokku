@@ -9,20 +9,53 @@ const STORAGE_KEYS = {
   OPERATOR: 'stokku_operator_v1'
 };
 
-export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXSy8WDlm3ijk4oZqwkOCqtUET6N7BOPWhRHtDocecqSNgcKWZdlY77h6A0IoEe-ykHMPEUy-3KZ3y/pub?gid=638369466&single=true&output=csv';
+export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/export?format=csv&gid=638369466';
 export const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxW1SRfxnEQ88ximFcs7kNJhreteT7MzCcxATYgTZ7NM5UGlsGeQFcA-rWjCeC5VTI/exec';
+
+export function normalizeGoogleSheetCsvUrl(url: string): string {
+  if (!url) return DEFAULT_SHEET_URL;
+  const trimmed = url.trim();
+
+  if (!trimmed.includes('docs.google.com/spreadsheets/d/')) {
+    return trimmed;
+  }
+
+  // Handle published web sheet
+  if (trimmed.includes('/spreadsheets/d/e/')) {
+    if (!trimmed.includes('output=csv')) {
+      return trimmed.includes('?') ? `${trimmed}&output=csv` : `${trimmed}?output=csv`;
+    }
+    return trimmed;
+  }
+
+  // Handle direct Google Spreadsheet edit / view / share link
+  const idMatch = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (idMatch && idMatch[1]) {
+    const spreadsheetId = idMatch[1];
+    let gid = '';
+    const gidMatch = trimmed.match(/[?&]gid=([0-9]+)/) || trimmed.match(/#gid=([0-9]+)/);
+    if (gidMatch && gidMatch[1]) {
+      gid = gidMatch[1];
+    }
+
+    return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv${gid ? `&gid=${gid}` : ''}`;
+  }
+
+  return trimmed;
+}
 
 export function getStoredSheetUrl(): string {
   if (typeof window === 'undefined') return DEFAULT_SHEET_URL;
   const stored = localStorage.getItem(STORAGE_KEYS.SHEET_URL);
-  if (!stored || stored === 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXSy8WDlm3ijk4oZqwkOCqtUET6N7BOPWhRHtDocecqSNgcKWZdlY77h6A0IoEe-ykHMPEUy-3KZ3y/pub?output=csv') {
+  if (!stored || stored.includes('/2PACX-1vSXSy8WDlm3ijk4oZqwkOCqtUET6N7BOPWhRHtDocecqSNgcKWZdlY77h6A0IoEe-ykHMPEUy-3KZ3y/')) {
     return DEFAULT_SHEET_URL;
   }
-  return stored;
+  return normalizeGoogleSheetCsvUrl(stored);
 }
 
 export function saveSheetUrl(url: string): void {
-  localStorage.setItem(STORAGE_KEYS.SHEET_URL, url.trim() || DEFAULT_SHEET_URL);
+  const normalized = normalizeGoogleSheetCsvUrl(url);
+  localStorage.setItem(STORAGE_KEYS.SHEET_URL, normalized || DEFAULT_SHEET_URL);
 }
 
 export function getStoredAppsScriptUrl(): string {
