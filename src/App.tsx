@@ -207,7 +207,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 text-center text-xs text-zinc-500 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p>© {new Date().getFullYear()} StokKu - Aplikasi Pendataan Produk Masuk & Terjual</p>
           <p className="text-[11px] text-zinc-400">
-            Terhubung dengan Google Spreadsheet CSV
+            Terhubung Langsung dengan Google Spreadsheet
           </p>
         </div>
       </footer>
