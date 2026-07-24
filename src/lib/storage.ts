@@ -216,6 +216,9 @@ export function mergeSpreadsheetProducts(fetchedRows: Array<{
   barcode2: string;
   photoUrl: string;
   name: string;
+  price?: number;
+  category?: string;
+  stock?: number;
 }>): Product[] {
   const existingProducts = getStoredProducts();
   const existingByBarcodeMap = new Map<string, Product>();
@@ -255,6 +258,9 @@ export function mergeSpreadsheetProducts(fetchedRows: Array<{
         barcode1: barcode1,
         barcode2: barcode2,
         photoUrl: formattedPhoto,
+        price: (fetched.price !== undefined && fetched.price > 0) ? fetched.price : matched.price,
+        category: (fetched.category && fetched.category.trim()) ? fetched.category : matched.category,
+        stock: (fetched.stock !== undefined && fetched.stock >= 0) ? fetched.stock : matched.stock,
         updatedAt: new Date().toISOString()
       });
     } else {
@@ -264,10 +270,10 @@ export function mergeSpreadsheetProducts(fetchedRows: Array<{
         barcode2: barcode2,
         photoUrl: formattedPhoto,
         name: fetched.name,
-        category: 'Umum',
-        stock: 0,
+        category: (fetched.category && fetched.category.trim()) ? fetched.category : 'Umum',
+        stock: (fetched.stock !== undefined && fetched.stock >= 0) ? fetched.stock : 0,
         minStock: 5,
-        price: 0,
+        price: fetched.price || 0,
         costPrice: 0,
         unit: 'Pcs',
         updatedAt: new Date().toISOString()

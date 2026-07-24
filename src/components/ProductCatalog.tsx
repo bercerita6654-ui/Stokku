@@ -34,6 +34,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   onOpenScanner
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [stockFilter, setStockFilter] = useState<'all' | 'available' | 'low' | 'out_of_stock'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   
@@ -41,6 +42,17 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isNewProductModal, setIsNewProductModal] = useState(false);
   const [showEditMenu, setShowEditMenu] = useState(false);
+
+  // Dynamic Categories from Products list
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
+    products.forEach((p) => {
+      if (p.category && p.category.trim()) {
+        set.add(p.category.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [products]);
 
   // New product form state
   const [newProductForm, setNewProductForm] = useState({
@@ -64,17 +76,22 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
         p.name.toLowerCase().includes(q) ||
         p.barcode1.toLowerCase().includes(q) ||
         p.barcode2.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q);
+        (p.category && p.category.toLowerCase().includes(q));
 
-      // Stock filter
+      // Category filter match
+      const matchCategory =
+        selectedCategory === 'all' ||
+        (p.category && p.category.toLowerCase() === selectedCategory.toLowerCase());
+
+      // Stock filter match
       let matchStock = true;
       if (stockFilter === 'available') matchStock = p.stock > 0;
       else if (stockFilter === 'low') matchStock = p.stock <= p.minStock && p.stock > 0;
       else if (stockFilter === 'out_of_stock') matchStock = p.stock === 0;
 
-      return matchSearch && matchStock;
+      return matchSearch && matchCategory && matchStock;
     });
-  }, [products, searchQuery, stockFilter]);
+  }, [products, searchQuery, selectedCategory, stockFilter]);
 
   // Handle Save Edit Product
   const handleSaveEditProduct = () => {
@@ -193,16 +210,16 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
           </div>
         </div>
 
-        {/* Search Bar & Stock Filter Chips */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
+        {/* Search Bar & Category Select */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="relative md:col-span-2">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari berdasarkan Nama Produk, Barcode 1, atau Barcode 2..."
-              className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900 transition"
+              placeholder="Cari Nama Produk, Barcode 1, Barcode 2, Kategori..."
+              className="w-full pl-10 pr-8 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900 transition"
             />
             {searchQuery && (
               <button
@@ -214,12 +231,77 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+          <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2">
+            <Filter className="w-4 h-4 text-zinc-400 shrink-0" />
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="bg-transparent text-xs font-semibold text-zinc-700 focus:outline-none cursor-pointer w-full"
+            >
+              <option value="all">Semua Kategori ({products.length})</option>
+              {availableCategories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat} ({products.filter((p) => p.category === cat).length})
+                </option>
+              ))}
+            </select>
+            {selectedCategory !== 'all' && (
+              <button
+                onClick={() => setSelectedCategory('all')}
+                className="text-zinc-400 hover:text-zinc-600 shrink-0"
+                title="Reset Filter Kategori"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Filter Chips Row: Categories & Stock Status */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-zinc-100">
+          {/* Category Chips (if any) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none max-w-full">
+            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mr-1 shrink-0">
+              Kategori:
+            </span>
+            <button
+              onClick={() => setSelectedCategory('all')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                selectedCategory === 'all'
+                  ? 'bg-zinc-900 text-white'
+                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200/80'
+              }`}
+            >
+              Semua ({products.length})
+            </button>
+            {availableCategories.map((cat) => {
+              const count = products.filter((p) => p.category === cat).length;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                    selectedCategory.toLowerCase() === cat.toLowerCase()
+                      ? 'bg-zinc-900 text-white'
+                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200/80'
+                  }`}
+                >
+                  {cat} ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Stock Filter Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none shrink-0">
+            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mr-1 shrink-0">
+              Stok:
+            </span>
             <button
               onClick={() => setStockFilter('all')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
                 stockFilter === 'all'
-                  ? 'bg-zinc-900 text-white'
+                  ? 'bg-zinc-800 text-white'
                   : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200/80'
               }`}
             >
@@ -227,33 +309,33 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
             </button>
             <button
               onClick={() => setStockFilter('available')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
                 stockFilter === 'available'
                   ? 'bg-emerald-600 text-white'
                   : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
               }`}
             >
-              Ada Stok
+              Ada
             </button>
             <button
               onClick={() => setStockFilter('low')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
                 stockFilter === 'low'
                   ? 'bg-amber-600 text-white'
                   : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
               }`}
             >
-              Stok Menipis
+              Menipis
             </button>
             <button
               onClick={() => setStockFilter('out_of_stock')}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
                 stockFilter === 'out_of_stock'
                   ? 'bg-rose-600 text-white'
                   : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
               }`}
             >
-              Stok Habis
+              Habis
             </button>
           </div>
         </div>
@@ -317,6 +399,13 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                       }`}
                     >
                       Stok: {product.stock} {product.unit}
+                    </span>
+                  </div>
+
+                  {/* Category Badge */}
+                  <div className="absolute top-2 left-2">
+                    <span className="px-2 py-0.5 rounded-md bg-zinc-900/80 backdrop-blur-xs text-white text-[10px] font-semibold">
+                      {product.category || 'Umum'}
                     </span>
                   </div>
                 </div>
@@ -436,7 +525,12 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                     </td>
 
                     <td className="py-2.5 px-3 font-semibold text-zinc-800 text-xs break-words">
-                      {product.name}
+                      <div>{product.name}</div>
+                      <div className="mt-1">
+                        <span className="inline-block px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-600 text-[10px] font-medium border border-zinc-200/60">
+                          {product.category || 'Umum'}
+                        </span>
+                      </div>
                     </td>
 
                     <td className="py-2.5 px-3 font-mono text-[11px] whitespace-nowrap">
@@ -546,14 +640,26 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-zinc-600 font-medium mb-1">Link Foto Produk</label>
-                <input
-                  type="text"
-                  value={editingProduct.photoUrl}
-                  onChange={(e) => setEditingProduct({ ...editingProduct, photoUrl: e.target.value })}
-                  className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-zinc-800"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-zinc-600 font-medium mb-1">Kategori Produk</label>
+                  <input
+                    type="text"
+                    value={editingProduct.category || ''}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })}
+                    placeholder="Contoh: Powerbank, Cable..."
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-zinc-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-600 font-medium mb-1">Link Foto Produk</label>
+                  <input
+                    type="text"
+                    value={editingProduct.photoUrl}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, photoUrl: e.target.value })}
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-zinc-800"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">

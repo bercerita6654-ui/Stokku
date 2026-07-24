@@ -120,23 +120,71 @@ async function startServer() {
   app.post('/api/sync-csv', async (req, res) => {
     try {
       const rawUrl = req.body?.url || DEFAULT_SHEET_URL;
-      const sheetUrl = normalizeGoogleSheetCsvUrl(rawUrl);
       
-      const response = await fetch(sheetUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'text/csv,text/plain,*/*'
-        }
-      });
+      // Build candidate URLs to try in sequence
+      const candidates: string[] = [];
+      const primaryUrl = normalizeGoogleSheetCsvUrl(rawUrl);
+      candidates.push(primaryUrl);
 
-      if (!response.ok) {
-        return res.status(response.status).json({
-          error: `Gagal mengunduh spreadsheet HTTP ${response.status}: ${response.statusText}`
+      // Add GViz fallback if it's a Google Spreadsheet URL
+      const idMatch = rawUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+      if (idMatch && idMatch[1]) {
+        const spreadsheetId = idMatch[1];
+        let gid = '';
+        const gidMatch = rawUrl.match(/[?&]gid=([0-9]+)/) || rawUrl.match(/#gid=([0-9]+)/);
+        if (gidMatch && gidMatch[1]) {
+          gid = gidMatch[1];
+        }
+        const gvizUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv${gid ? `&gid=${gid}` : ''}`;
+        if (!candidates.includes(gvizUrl)) {
+          candidates.push(gvizUrl);
+        }
+      }
+
+      if (rawUrl && !candidates.includes(rawUrl)) {
+        candidates.push(rawUrl);
+      }
+
+      let csvText = '';
+      let successfulUrl = '';
+      let lastError = '';
+
+      for (const targetCandidate of candidates) {
+        try {
+          const response = await fetch(targetCandidate, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': 'text/csv,text/plain,application/json,*/*'
+            }
+          });
+
+          if (!response.ok) {
+            lastError = `HTTP ${response.status}: ${response.statusText}`;
+            continue;
+          }
+
+          const text = await response.text();
+          // Check if response is HTML (Google Login or Preview page instead of CSV data)
+          const isHtml = text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html') || text.includes('google-site-verification');
+          if (isHtml) {
+            lastError = 'Spreadsheet mengembalikan halaman HTML. Akses mungkin memerlukan izin publik.';
+            continue;
+          }
+
+          csvText = text;
+          successfulUrl = targetCandidate;
+          break;
+        } catch (err: any) {
+          lastError = err.message || 'Gagal terhubung ke URL';
+        }
+      }
+
+      if (!csvText) {
+        return res.status(400).json({
+          error: `Gagal membaca Google Sheet. ${lastError || ''}. Pastikan akses spreadsheet diatur ke 'Siapa saja yang memiliki link' (Anyone with link).`
         });
       }
 
-      const csvText = await response.text();
-      
       // Parse CSV using PapaParse
       const parsed = Papa.parse<string[]>(csvText, {
         skipEmptyLines: true,
@@ -152,21 +200,48 @@ async function startServer() {
         return res.json({ products: [], total: 0, message: 'Spreadsheet kosong' });
       }
 
-      // Detect if first row is header
+      // Dynamic Column Mapping
+      let barcode1Idx = 0;
+      let barcode2Idx = 1;
+      let photoUrlIdx = 2;
+      let nameIdx = 3;
+      let priceIdx = 4;
+      let categoryIdx = -1;
+      let stockIdx = -1;
+
       let startIdx = 0;
       const firstRow = rawRows[0];
-      const col0 = (firstRow[0] || '').toLowerCase();
-      const col1 = (firstRow[1] || '').toLowerCase();
-      const col2 = (firstRow[2] || '').toLowerCase();
-      const col3 = (firstRow[3] || '').toLowerCase();
+      if (firstRow && firstRow.length > 0) {
+        let matchedHeaderCount = 0;
+        firstRow.forEach((colStr, idx) => {
+          const col = (colStr || '').toLowerCase().trim();
+          if (col.includes('barcode pg') || col.includes('barcode 1') || col.includes('kode 1') || col === 'barcode') {
+            barcode1Idx = idx;
+            matchedHeaderCount++;
+          } else if (col.includes('barcode gl') || col.includes('barcode 2') || col.includes('kode 2') || col.includes('ean')) {
+            barcode2Idx = idx;
+            matchedHeaderCount++;
+          } else if (col.includes('foto') || col.includes('link') || col.includes('gambar') || col.includes('image')) {
+            photoUrlIdx = idx;
+            matchedHeaderCount++;
+          } else if (col.includes('nama') || col.includes('product') || col.includes('item') || col.includes('barang')) {
+            nameIdx = idx;
+            matchedHeaderCount++;
+          } else if (col.includes('harga') || col.includes('price')) {
+            priceIdx = idx;
+            matchedHeaderCount++;
+          } else if (col.includes('kategori') || col.includes('category') || col.includes('tipe')) {
+            categoryIdx = idx;
+            matchedHeaderCount++;
+          } else if (col.includes('stok') || col.includes('stock') || col.includes('qty')) {
+            stockIdx = idx;
+            matchedHeaderCount++;
+          }
+        });
 
-      if (
-        col0.includes('barcode') || col0.includes('kode') || col0.includes('no') ||
-        col1.includes('barcode') || col1.includes('kode') ||
-        col2.includes('foto') || col2.includes('link') || col2.includes('gambar') ||
-        col3.includes('nama') || col3.includes('produk') || col3.includes('item')
-      ) {
-        startIdx = 1; // Skip header row
+        if (matchedHeaderCount >= 2) {
+          startIdx = 1; // Skip header row
+        }
       }
 
       const products: CSVProductRow[] = [];
@@ -174,12 +249,15 @@ async function startServer() {
         const row = rawRows[i];
         if (!row || row.length === 0) continue;
 
-        const barcode1 = (row[0] || '').trim();
-        const barcode2 = (row[1] || '').trim();
-        const photoUrlRaw = (row[2] || '').trim();
-        const name = (row[3] || '').trim();
-        const priceStr = (row[4] || '').replace(/[^0-9]/g, '');
+        const barcode1 = (row[barcode1Idx] || '').trim();
+        const barcode2 = (row[barcode2Idx] || '').trim();
+        const photoUrlRaw = (row[photoUrlIdx] || '').trim();
+        const name = (row[nameIdx] || '').trim();
+        
+        const priceStr = priceIdx >= 0 && row[priceIdx] ? (row[priceIdx] || '').replace(/[^0-9]/g, '') : '';
         const parsedPrice = priceStr ? parseInt(priceStr, 10) : 0;
+
+        const category = categoryIdx >= 0 && row[categoryIdx] ? (row[categoryIdx] || '').trim() : '';
 
         // Skip completely empty rows
         if (!barcode1 && !barcode2 && !name) continue;
@@ -193,7 +271,8 @@ async function startServer() {
           barcode2: barcode2,
           photoUrl: processedPhotoUrl,
           name: name || `Produk ${i}`,
-          price: parsedPrice
+          price: parsedPrice,
+          category: category
         });
       }
 
@@ -202,7 +281,7 @@ async function startServer() {
         products,
         total: products.length,
         syncedAt: new Date().toISOString(),
-        sourceUrl: sheetUrl
+        sourceUrl: successfulUrl
       });
     } catch (error: any) {
       console.error('Error syncing CSV:', error);
