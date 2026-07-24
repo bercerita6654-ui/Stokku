@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Product, TransactionType, TransactionItem } from '../types';
 import { findProductByBarcode, recordTransaction, getStoredOperator, saveStoredOperator, formatPhotoUrl } from '../lib/storage';
+import { User as FirebaseUser } from '../lib/firebase';
 
 interface TransactionFormProps {
   products: Product[];
@@ -26,6 +27,7 @@ interface TransactionFormProps {
   onOpenScanner: () => void;
   scannedBarcode?: string | null;
   onClearScannedBarcode?: () => void;
+  currentUser?: FirebaseUser | null;
 }
 
 export const TransactionForm: React.FC<TransactionFormProps> = ({
@@ -35,14 +37,26 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   onTransactionSaved,
   onOpenScanner,
   scannedBarcode,
-  onClearScannedBarcode
+  onClearScannedBarcode,
+  currentUser
 }) => {
   const [trxType, setTrxType] = useState<TransactionType>(initialType);
   const [barcodeInput, setBarcodeInput] = useState('');
   const [cartItems, setCartItems] = useState<TransactionItem[]>([]);
   const [note, setNote] = useState('');
-  const [operator, setOperator] = useState(getStoredOperator());
+  const [operator, setOperator] = useState(
+    currentUser?.displayName || currentUser?.email?.split('@')[0] || getStoredOperator()
+  );
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Sync operator with logged-in Google User
+  useEffect(() => {
+    if (currentUser) {
+      const name = currentUser.displayName || currentUser.email?.split('@')[0] || 'Operator Google';
+      setOperator(name);
+      saveStoredOperator(name);
+    }
+  }, [currentUser]);
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 

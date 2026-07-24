@@ -18,6 +18,13 @@ import { TransactionForm } from './components/TransactionForm';
 import { TransactionHistory } from './components/TransactionHistory';
 import { SettingsModal } from './components/SettingsModal';
 import { BarcodeScannerModal } from './components/BarcodeScannerModal';
+import { 
+  auth, 
+  loginWithGoogle, 
+  logoutFirebase, 
+  onAuthStateChanged, 
+  User 
+} from './lib/firebase';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'catalog' | 'transaction' | 'history' | 'settings'>('dashboard');
@@ -26,6 +33,10 @@ export default function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(getStoredSyncStatus());
 
+  // Authentication state
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+
   // Fast Transaction state
   const [transactionType, setTransactionType] = useState<TransactionType>('MASUK');
   const [selectedProductForTrx, setSelectedProductForTrx] = useState<Product | null>(null);
@@ -33,6 +44,36 @@ export default function App() {
   // Scanner modal state
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
+
+  // Listen for Firebase Auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLoginGoogle = async () => {
+    setIsAuthenticating(true);
+    try {
+      await loginWithGoogle();
+    } catch (err: any) {
+      console.error('Login error:', err);
+      if (err.code !== 'auth/popup-closed-by-user') {
+        alert(`Gagal login dengan Google: ${err.message || 'Terjadi kesalahan'}`);
+      }
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleLogoutGoogle = async () => {
+    try {
+      await logoutFirebase();
+    } catch (err: any) {
+      console.error('Logout error:', err);
+    }
+  };
 
   // Load local storage data on initial mount
   useEffect(() => {
@@ -152,7 +193,10 @@ export default function App() {
         setActiveTab={setActiveTab}
         syncStatus={syncStatus}
         onSyncNow={() => handleSyncSpreadsheet()}
-        operatorName="Admin Stok"
+        currentUser={currentUser}
+        onLoginGoogle={handleLoginGoogle}
+        onLogoutGoogle={handleLogoutGoogle}
+        isAuthenticating={isAuthenticating}
       />
 
       {/* Main View Area */}
@@ -190,6 +234,7 @@ export default function App() {
             onOpenScanner={() => setIsScannerOpen(true)}
             scannedBarcode={scannedBarcode}
             onClearScannedBarcode={() => setScannedBarcode(null)}
+            currentUser={currentUser}
           />
         )}
 
@@ -202,6 +247,10 @@ export default function App() {
             syncStatus={syncStatus}
             onTriggerSync={(url) => handleSyncSpreadsheet(url)}
             onClearAllData={handleClearAllData}
+            currentUser={currentUser}
+            onLoginGoogle={handleLoginGoogle}
+            onLogoutGoogle={handleLogoutGoogle}
+            isAuthenticating={isAuthenticating}
           />
         )}
       </main>
