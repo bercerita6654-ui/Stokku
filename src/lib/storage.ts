@@ -559,7 +559,7 @@ export function deleteTransaction(transactionId: string): void {
     action: 'DELETE_TRANSACTION',
     id: txToDelete.id,
     type: txToDelete.type,
-    items: txToDelete.items,
+    deletedItems: txToDelete.items,
     timestamp: new Date().toISOString()
   });
 }

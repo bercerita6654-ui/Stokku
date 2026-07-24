@@ -315,6 +315,43 @@ async function startServer() {
     }
   });
 
+  // Proxy Endpoint to push transactions or delete actions to Google Apps Script Web App
+  app.post('/api/sync-transaction', async (req, res) => {
+    try {
+      const { appsScriptUrl, payload } = req.body || {};
+      if (!appsScriptUrl) {
+        return res.status(400).json({ success: false, error: 'Apps Script URL required' });
+      }
+
+      const response = await fetch(appsScriptUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain'
+        },
+        body: JSON.stringify(payload || {})
+      });
+
+      const responseText = await response.text();
+      let responseJson: any = null;
+      try {
+        responseJson = JSON.parse(responseText);
+      } catch (e) {
+        // Not JSON or plain string response from Apps Script
+      }
+
+      return res.json({
+        success: true,
+        data: responseJson || responseText
+      });
+    } catch (err: any) {
+      console.error('Error in /api/sync-transaction proxy:', err);
+      return res.status(500).json({
+        success: false,
+        error: err.message || 'Gagal mengirim data ke Google Apps Script'
+      });
+    }
+  });
+
   // Vite middleware in development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
