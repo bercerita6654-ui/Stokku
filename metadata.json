@@ -1,0 +1,6 @@
+{
+  "name": "StokKu - Pendataan Produk Masuk & Terjual",
+  "description": "Aplikasi pendataan stok produk masuk dan terjual dengan sinkronisasi Google Spreadsheet, pemindai barcode, dan laporan transaksi.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
