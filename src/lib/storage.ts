@@ -9,7 +9,7 @@ const STORAGE_KEYS = {
   OPERATOR: 'stokku_operator_v1'
 };
 
-export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/export?format=csv&gid=638369466';
+export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/edit?gid=638369466#gid=638369466';
 export const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxW1SRfxnEQ88ximFcs7kNJhreteT7MzCcxATYgTZ7NM5UGlsGeQFcA-rWjCeC5VTI/exec';
 
 export function normalizeGoogleSheetCsvUrl(url: string): string {

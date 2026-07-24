@@ -37,8 +37,8 @@ const APPS_SCRIPT_CODE = `/**
  *
  * Petunjuk Pemasangan:
  * 1. Buka Google Spreadsheet Anda:
- *    https://docs.google.com/spreadsheets/d/e/2PACX-1vSXSy8WDlm3ijk4oZqwkOCqtUET6N7BOPWhRHtDocecqSNgcKWZdlY77h6A0IoEe-ykHMPEUy-3KZ3y/pub?output=csv
- * 2. Klik menu Extensi -> Apps Script
+ *    https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/edit?gid=410498483#gid=410498483
+ * 2. Klik menu Ekstensi -> Apps Script
  * 3. Hapus seluruh kode bawaan, lalu paste (tempel) kode ini.
  * 4. Klik ikon Disket (Simpan).
  * 5. Klik tombol "Terapkan" (Deploy) -> "Terapkan Baru" (New deployment).
