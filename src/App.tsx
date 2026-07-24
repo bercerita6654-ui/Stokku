@@ -144,6 +144,10 @@ export default function App() {
           if (data && data.success && Array.isArray(data.products)) {
             fetchedProducts = data.products;
           }
+          if (data && data.success && Array.isArray(data.transactions) && data.transactions.length > 0) {
+            setTransactions(data.transactions);
+            saveTransactions(data.transactions);
+          }
         }
       } catch (e) {
         console.info('Backend /api/sync-csv unreachable, switching to direct client-side Google Sheet fetch...');
