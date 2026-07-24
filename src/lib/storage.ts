@@ -10,7 +10,7 @@ const STORAGE_KEYS = {
   OPERATOR: 'stokku_operator_v1'
 };
 
-export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/edit?gid=638369466#gid=638369466';
+export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/edit?gid=410498483#gid=410498483';
 export const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxW1SRfxnEQ88ximFcs7kNJhreteT7MzCcxATYgTZ7NM5UGlsGeQFcA-rWjCeC5VTI/exec';
 
 export function normalizeGoogleSheetCsvUrl(url: string): string {
@@ -253,9 +253,10 @@ export function saveAppsScriptUrl(url: string): void {
 export async function sendTransactionToGoogleSheet(transaction: Transaction): Promise<{ success: boolean; message?: string }> {
   const appsScriptUrl = getStoredAppsScriptUrl();
   if (!appsScriptUrl) {
-    return { success: false, message: 'URL Apps Script belum diisi' };
+    return { success: false, message: 'URL Web App Apps Script belum diatur' };
   }
 
+  // 1. Coba lewat backend proxy server (jika tersedia)
   try {
     const res = await fetch('/api/sync-transaction', {
       method: 'POST',
@@ -268,15 +269,30 @@ export async function sendTransactionToGoogleSheet(transaction: Transaction): Pr
       })
     });
 
-    const data = await res.json();
-    if (res.ok && data.success) {
-      return { success: true, message: 'Berhasil dikirim ke sheet Update Stock' };
-    } else {
-      return { success: false, message: data.error || 'Gagal mengirim ke Apps Script' };
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success) {
+        return { success: true, message: 'Berhasil dikirim ke Google Sheet' };
+      }
     }
-  } catch (err: any) {
-    console.error('Failed to auto sync transaction to Apps Script:', err);
-    return { success: false, message: err.message || 'Gagal koneksi ke server' };
+  } catch (err) {
+    console.info('Backend proxy /api/sync-transaction tidak tersedia, menggunakan fetch browser langsung...');
+  }
+
+  // 2. Fallback kirim langsung dari browser peramban (cocok untuk GitHub Pages / Static hosting)
+  try {
+    await fetch(appsScriptUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'text/plain'
+      },
+      body: JSON.stringify(transaction)
+    });
+    return { success: true, message: 'Transaksi berhasil dikirim langsung ke Google Sheet' };
+  } catch (directErr: any) {
+    console.error('Gagal mengirim transaksi ke Google Sheet:', directErr);
+    return { success: false, message: directErr.message || 'Gagal koneksi ke Google Apps Script' };
   }
 }
 

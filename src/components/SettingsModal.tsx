@@ -6,6 +6,8 @@ import {
   AlertTriangle, 
   ExternalLink, 
   Trash2, 
+  Copy,
+  FileCode,
   Info,
   Sparkles,
   Database,
@@ -17,6 +19,8 @@ import { SyncStatus } from '../types';
 import { 
   getStoredSheetUrl, 
   saveSheetUrl, 
+  getStoredAppsScriptUrl,
+  saveAppsScriptUrl,
   DEFAULT_SHEET_URL
 } from '../lib/storage';
 import { User } from '../lib/firebase';
@@ -41,6 +45,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isAuthenticating = false
 }) => {
   const [sheetUrl, setSheetUrl] = useState(getStoredSheetUrl());
+  const [appsScriptUrl, setAppsScriptUrl] = useState(getStoredAppsScriptUrl());
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [appsScriptSuccess, setAppsScriptSuccess] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSaveUrl = () => {
@@ -184,7 +191,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               type="text"
               value={sheetUrl}
               onChange={(e) => setSheetUrl(e.target.value)}
-              placeholder="https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/edit?gid=638369466"
+              placeholder="https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/edit?gid=410498483"
               className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 transition"
             />
 
@@ -302,7 +309,129 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
       </div>
 
-      {/* 2. Danger Zone: Reset Data */}
+            {/* 2. Google Apps Script Web App Integration (Auto Write Transaksi ke Sheet) */}
+      <div className="bg-white rounded-2xl border border-zinc-200/80 p-6 shadow-2xs space-y-5">
+        <div className="flex items-center gap-3 border-b border-zinc-100 pb-4">
+          <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-2xs">
+            <FileCode className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-zinc-800">Pencatatan Otomatis Input Transaksi ke Google Sheet</h2>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                Input Real-time
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              Tiap kali transaksi (Barang Masuk / Terjual) diinput, data otomatis dikirim &amp; ditambahkan sebagai baris baru di Google Spreadsheet Anda.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider">
+            URL Google Apps Script Web App
+          </label>
+          
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={appsScriptUrl}
+              onChange={(e) => setAppsScriptUrl(e.target.value)}
+              placeholder="https://script.google.com/macros/s/.../exec"
+              className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 transition"
+            />
+            <button
+              onClick={() => {
+                saveAppsScriptUrl(appsScriptUrl);
+                setAppsScriptSuccess(true);
+                setTimeout(() => setAppsScriptSuccess(false), 2500);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition shrink-0"
+            >
+              Simpan URL Web App
+            </button>
+          </div>
+
+          {appsScriptSuccess && (
+            <p className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>URL Google Apps Script Web App berhasil disimpan!</span>
+            </p>
+          )}
+        </div>
+
+        {/* Script Code Helper */}
+        <div className="p-4 rounded-xl bg-zinc-900 text-zinc-100 space-y-3 text-xs font-mono">
+          <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+            <div className="flex items-center gap-2">
+              <FileCode className="w-4 h-4 text-emerald-400" />
+              <span className="font-bold text-zinc-200 text-xs">Kode Google Apps Script (1-Kali Pasang)</span>
+            </div>
+            <button
+              onClick={() => {
+                const code = `function doPost(e) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('Transaksi') || ss.insertSheet('Transaksi');
+    
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow(['Waktu', 'ID Transaksi', 'Tipe', 'Nama Produk', 'Barcode', 'Jumlah (Qty)', 'Harga Satuan', 'Subtotal', 'Operator', 'Catatan']);
+      sheet.getRange(1, 1, 1, 10).setFontWeight('bold').setBackground('#f3f4f6');
+    }
+    
+    var data = JSON.parse(e.postData.contents);
+    var timestamp = new Date();
+    var type = data.type || 'MASUK';
+    var operator = data.operator || 'Admin';
+    var note = data.note || '';
+    
+    if (data.items && Array.isArray(data.items)) {
+      data.items.forEach(function(item) {
+        sheet.appendRow([
+          timestamp,
+          data.id,
+          type,
+          item.productName || '',
+          item.barcode || '',
+          item.quantity || 1,
+          item.unitPrice || 0,
+          item.subtotal || 0,
+          operator,
+          note
+        ]);
+      });
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ success: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+                navigator.clipboard.writeText(code);
+                setCopiedCode(true);
+                setTimeout(() => setCopiedCode(false), 2000);
+              }}
+              className="flex items-center gap-1 px-3 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] transition font-sans font-semibold border border-zinc-700"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>{copiedCode ? 'Tersalin!' : 'Salin Kode Script'}</span>
+            </button>
+          </div>
+
+          <p className="text-[11px] text-zinc-400 font-sans leading-relaxed">
+            Petunjuk Singkat:
+            <br />1. Buka Spreadsheet Anda &rarr; Klik menu <span className="text-zinc-200 font-semibold">Ekstensi</span> &rarr; <span className="text-zinc-200 font-semibold">Apps Script</span>.
+            <br />2. Hapus isi editor lalu Tempel (Paste) kode yang disalin di atas.
+            <br />3. Klik <span className="text-zinc-200 font-semibold">Terapkan (Deploy)</span> &rarr; <span className="text-zinc-200 font-semibold">Terapkan sebagai Aplikasi Web (Web App)</span>.
+            <br />4. Atur <span className="text-emerald-400 font-semibold">Akses</span> ke <span className="text-emerald-400 font-semibold">Siapa saja (Anyone)</span> &rarr; Klik Terapkan &rarr; Salin URL Web App ke kolom di atas.
+          </p>
+        </div>
+      </div>
+
+{/* 2. Danger Zone: Reset Data */}
       <div className="bg-white rounded-2xl border border-rose-200/80 p-6 shadow-2xs space-y-4">
         <div className="flex items-center gap-2 text-rose-700 font-bold text-sm">
           <AlertTriangle className="w-5 h-5 text-rose-600" />
