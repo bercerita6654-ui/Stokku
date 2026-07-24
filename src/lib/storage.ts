@@ -17,7 +17,7 @@ const STORAGE_KEYS = {
   OPERATOR: 'stokku_operator_v1'
 };
 
-export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/edit?gid=638369466#gid=638369466';
+export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/edit?gid=410498483#gid=410498483';
 export const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxW1SRfxnEQ88ximFcs7kNJhreteT7MzCcxATYgTZ7NM5UGlsGeQFcA-rWjCeC5VTI/exec';
 
 export function normalizeGoogleSheetCsvUrl(url: string): string {
@@ -55,7 +55,7 @@ export function normalizeGoogleSheetCsvUrl(url: string): string {
 export function getStoredSheetUrl(): string {
   if (typeof window === 'undefined') return DEFAULT_SHEET_URL;
   const stored = localStorage.getItem(STORAGE_KEYS.SHEET_URL);
-  if (!stored || stored.includes('/2PACX-1vSXSy8WDlm3ijk4oZqwkOCqtUET6N7BOPWhRHtDocecqSNgcKWZdlY77h6A0IoEe-ykHMPEUy-3KZ3y/') || stored.includes('410498483')) {
+  if (!stored || stored.includes('/2PACX-1vSXSy8WDlm3ijk4oZqwkOCqtUET6N7BOPWhRHtDocecqSNgcKWZdlY77h6A0IoEe-ykHMPEUy-3KZ3y/')) {
     return DEFAULT_SHEET_URL;
   }
   return normalizeGoogleSheetCsvUrl(stored);
@@ -440,6 +440,8 @@ export function mergeSpreadsheetProducts(fetchedRows: Array<{
   price?: number;
   category?: string;
   stock?: number;
+  totalIncoming?: number;
+  totalOutgoing?: number;
 }>): Product[] {
   const existingProducts = getStoredProducts();
   const existingByBarcodeMap = new Map<string, Product>();
@@ -482,6 +484,8 @@ export function mergeSpreadsheetProducts(fetchedRows: Array<{
         price: (fetched.price !== undefined && fetched.price > 0) ? fetched.price : matched.price,
         category: (fetched.category && fetched.category.trim()) ? fetched.category : matched.category,
         stock: (fetched.stock !== undefined && fetched.stock >= 0) ? fetched.stock : matched.stock,
+        totalIncoming: fetched.totalIncoming !== undefined ? fetched.totalIncoming : matched.totalIncoming,
+        totalOutgoing: fetched.totalOutgoing !== undefined ? fetched.totalOutgoing : matched.totalOutgoing,
         updatedAt: new Date().toISOString()
       });
     } else {
@@ -493,6 +497,8 @@ export function mergeSpreadsheetProducts(fetchedRows: Array<{
         name: fetched.name,
         category: (fetched.category && fetched.category.trim()) ? fetched.category : 'Umum',
         stock: (fetched.stock !== undefined && fetched.stock >= 0) ? fetched.stock : 0,
+        totalIncoming: fetched.totalIncoming || 0,
+        totalOutgoing: fetched.totalOutgoing || 0,
         minStock: 5,
         price: fetched.price || 0,
         costPrice: 0,
