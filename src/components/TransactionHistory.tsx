@@ -586,7 +586,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transact
       <DeleteConfirmModal
         isOpen={!!deletingTx}
         title="Hapus Transaksi Ini"
-        message="Apakah Anda yakin ingin menghapus transaksi ini? Stok produk terkait akan disesuaikan secara otomatis."
+        message="Apakah Anda yakin ingin menghapus transaksi ini? Stok produk terkait akan disesuaikan dan data di file spreadsheet (sheet 'Update Stok' / 'Transaksi') juga otomatis ikut terhapus."
         itemName={deletingTx ? `Transaksi #${deletingTx.id}` : ''}
         itemDetail={deletingTx ? `${deletingTx.type === 'MASUK' ? 'Barang Masuk' : 'Barang Terjual'} • Total Qty: ${deletingTx.totalQuantity}` : ''}
         confirmButtonText="Hapus Transaksi"
