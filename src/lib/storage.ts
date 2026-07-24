@@ -10,7 +10,7 @@ const STORAGE_KEYS = {
   OPERATOR: 'stokku_operator_v1'
 };
 
-export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/edit?gid=410498483#gid=410498483';
+export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/edit?gid=638369466#gid=638369466';
 export const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxW1SRfxnEQ88ximFcs7kNJhreteT7MzCcxATYgTZ7NM5UGlsGeQFcA-rWjCeC5VTI/exec';
 
 export function normalizeGoogleSheetCsvUrl(url: string): string {
@@ -48,7 +48,7 @@ export function normalizeGoogleSheetCsvUrl(url: string): string {
 export function getStoredSheetUrl(): string {
   if (typeof window === 'undefined') return DEFAULT_SHEET_URL;
   const stored = localStorage.getItem(STORAGE_KEYS.SHEET_URL);
-  if (!stored || stored.includes('/2PACX-1vSXSy8WDlm3ijk4oZqwkOCqtUET6N7BOPWhRHtDocecqSNgcKWZdlY77h6A0IoEe-ykHMPEUy-3KZ3y/')) {
+  if (!stored || stored.includes('/2PACX-1vSXSy8WDlm3ijk4oZqwkOCqtUET6N7BOPWhRHtDocecqSNgcKWZdlY77h6A0IoEe-ykHMPEUy-3KZ3y/') || stored.includes('410498483')) {
     return DEFAULT_SHEET_URL;
   }
   return normalizeGoogleSheetCsvUrl(stored);
