@@ -508,14 +508,16 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                   {product.name}
                 </h3>
 
-                {/* Barcodes Display (Kolom 1 & Kolom 2) */}
+                {/* Barcodes Display & Stock Summary (Masuk, Terjual) */}
                 <div className="mt-2 space-y-1 bg-zinc-50 p-2 rounded-xl border border-zinc-100">
-                  <div className="flex items-center gap-1.5 text-[11px] text-zinc-600">
-                    <Barcode className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                    <span className="font-semibold text-zinc-500">B1:</span>
-                    <span className="font-mono text-zinc-800 font-medium truncate">
-                      {product.barcode1 || '-'}
-                    </span>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-1.5 text-zinc-600">
+                      <Barcode className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                      <span className="font-semibold text-zinc-500">B1:</span>
+                      <span className="font-mono text-zinc-800 font-medium truncate">
+                        {product.barcode1 || '-'}
+                      </span>
+                    </div>
                   </div>
                   {product.barcode2 && (
                     <div className="flex items-center gap-1.5 text-[11px] text-zinc-600">
@@ -526,6 +528,17 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                       </span>
                     </div>
                   )}
+
+                  <div className="pt-1.5 mt-1.5 border-t border-zinc-200/60 grid grid-cols-2 gap-1 text-[11px] font-semibold">
+                    <div className="text-emerald-700 bg-emerald-50/80 px-2 py-0.5 rounded-md flex items-center justify-between">
+                      <span className="text-[10px] text-emerald-800">Masuk:</span>
+                      <span>+{product.totalIncoming ?? 0}</span>
+                    </div>
+                    <div className="text-rose-700 bg-rose-50/80 px-2 py-0.5 rounded-md flex items-center justify-between">
+                      <span className="text-[10px] text-rose-800">Terjual:</span>
+                      <span>-{product.totalOutgoing ?? 0}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -582,9 +595,11 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                 <tr className="bg-zinc-50 text-zinc-500 text-[11px] font-bold uppercase tracking-wider border-b border-zinc-200 whitespace-nowrap">
                   <th className="py-3 px-3 min-w-[60px]">Foto</th>
                   <th className="py-3 px-3 min-w-[200px]">Nama Produk</th>
-                  <th className="py-3 px-3 min-w-[150px]">Barcode 1 & 2</th>
-                  <th className="py-3 px-3 min-w-[120px]">Stok Saat Ini</th>
-                  <th className="py-3 px-3 min-w-[180px] text-right">Aksi Cepat</th>
+                  <th className="py-3 px-3 min-w-[140px]">Barcode 1 & 2</th>
+                  <th className="py-3 px-3 min-w-[100px]">Total Masuk</th>
+                  <th className="py-3 px-3 min-w-[100px]">Total Terjual</th>
+                  <th className="py-3 px-3 min-w-[110px]">Stok Saat Ini</th>
+                  <th className="py-3 px-3 min-w-[170px] text-right">Aksi Cepat</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 text-xs text-zinc-700">
@@ -631,6 +646,14 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                       {product.barcode2 && (
                         <div><span className="text-zinc-400 font-sans">B2:</span> {product.barcode2}</div>
                       )}
+                    </td>
+
+                    <td className="py-2.5 px-3 font-semibold text-emerald-700 whitespace-nowrap">
+                      +{product.totalIncoming ?? 0}
+                    </td>
+
+                    <td className="py-2.5 px-3 font-semibold text-rose-700 whitespace-nowrap">
+                      -{product.totalOutgoing ?? 0}
                     </td>
 
                     <td className="py-2.5 px-3 whitespace-nowrap">
