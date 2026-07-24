@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "products": {
+      "title": "Products",
+      "description": "Product catalog and stock inventory items",
+      "properties": {
+        "id": { "type": "string" },
+        "barcode1": { "type": "string" },
+        "barcode2": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "stock": { "type": "number" },
+        "minStock": { "type": "number" },
+        "price": { "type": "number" },
+        "costPrice": { "type": "number" },
+        "unit": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "stock"]
+    },
+    "transactions": {
+      "title": "Transactions",
+      "description": "Inventory stock transactions (incoming and sold)",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "items": { "type": "array" },
+        "totalItems": { "type": "number" },
+        "totalQuantity": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "note": { "type": "string" },
+        "operator": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "type", "items", "createdAt"]
+    },
+    "settings": {
+      "title": "AppSettings",
+      "description": "Global application configuration settings",
+      "properties": {
+        "key": { "type": "string" },
+        "value": { "type": "string" }
+      },
+      "required": ["key"]
+    }
+  }
+}
