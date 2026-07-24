@@ -13,7 +13,8 @@ import {
   FileText, 
   User, 
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { Product, TransactionType, TransactionItem } from '../types';
 import { findProductByBarcode, recordTransaction, getStoredOperator, saveStoredOperator, formatPhotoUrl } from '../lib/storage';
@@ -52,6 +53,21 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   );
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [successModalData, setSuccessModalData] = useState<SavedTransactionDetails | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close suggestions on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Sync operator with logged-in Google User
   useEffect(() => {
@@ -61,8 +77,6 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       saveStoredOperator(name);
     }
   }, [currentUser]);
-
-  const barcodeInputRef = useRef<HTMLInputElement>(null);
 
   // Focus barcode input on mount
   useEffect(() => {
@@ -123,6 +137,17 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     setTimeout(() => setFeedbackMessage(null), 2500);
   };
 
+  // Calculate matching products for live search
+  const searchTrim = barcodeInput.trim().toLowerCase();
+  const searchResults = searchTrim
+    ? products.filter((p) =>
+        p.name.toLowerCase().includes(searchTrim) ||
+        (p.barcode1 && p.barcode1.toLowerCase().includes(searchTrim)) ||
+        (p.barcode2 && p.barcode2.toLowerCase().includes(searchTrim)) ||
+        (p.category && p.category.toLowerCase().includes(searchTrim))
+      )
+    : [];
+
   // Barcode Lookup logic
   const handleBarcodeLookup = (code: string) => {
     if (!code || !code.trim()) return;
@@ -132,16 +157,22 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     if (matched) {
       addProductToCart(matched);
       setBarcodeInput('');
+      setShowSuggestions(false);
     } else {
-      // Try soft matching product name
-      const softMatched = products.find(p => p.name.toLowerCase().includes(cleanCode.toLowerCase()));
+      // Try soft matching product name or barcode/SKU
+      const softMatched = products.find(p => 
+        p.name.toLowerCase().includes(cleanCode.toLowerCase()) ||
+        (p.barcode1 && p.barcode1.toLowerCase().includes(cleanCode.toLowerCase())) ||
+        (p.barcode2 && p.barcode2.toLowerCase().includes(cleanCode.toLowerCase()))
+      );
       if (softMatched) {
         addProductToCart(softMatched);
         setBarcodeInput('');
+        setShowSuggestions(false);
       } else {
         setFeedbackMessage({
           type: 'error',
-          text: `Barcode "${cleanCode}" tidak ditemukan di database produk.`
+          text: `Produk / Barcode / SKU "${cleanCode}" tidak ditemukan di database.`
         });
         setTimeout(() => setFeedbackMessage(null), 3000);
       }
@@ -293,30 +324,146 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
           </div>
         )}
 
-        {/* Barcode Search & Fast Scanner Input */}
-        <div className="space-y-2">
-          <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider">
-            1. Pindai / Cari Produk (Barcode 1 / Barcode 2 / Nama)
-          </label>
-          <form onSubmit={handleBarcodeSubmit} className="flex gap-2">
+        {/* Barcode / SKU / Product Search & Fast Scanner Input */}
+        <div className="space-y-2 relative" ref={searchContainerRef}>
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider">
+              1. Pindai Barcode / Ketik Cari Produk (Nama, Kode SKU / Barcode 1 & 2, Kategori)
+            </label>
+            {searchTrim && (
+              <span className="text-[11px] font-semibold text-emerald-600">
+                {searchResults.length} produk cocok
+              </span>
+            )}
+          </div>
+
+          <form onSubmit={handleBarcodeSubmit} className="flex gap-2 relative">
             <div className="relative flex-1">
-              <Barcode className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
               <input
                 ref={barcodeInputRef}
                 type="text"
                 value={barcodeInput}
-                onChange={(e) => setBarcodeInput(e.target.value)}
-                placeholder="Arahkan scanner barcode atau ketik di sini lalu tekan Enter..."
-                className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-800 font-mono focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900 transition"
+                onFocus={() => setShowSuggestions(true)}
+                onChange={(e) => {
+                  setBarcodeInput(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                placeholder="Ketik nama produk, kode SKU, Barcode 1/2, atau gunakan scanner..."
+                className="w-full pl-10 pr-10 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-800 font-medium focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900 transition"
               />
+              {barcodeInput && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBarcodeInput('');
+                    setShowSuggestions(false);
+                    barcodeInputRef.current?.focus();
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 p-1 rounded-full hover:bg-zinc-200/60 transition"
+                  title="Hapus ketikan"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
             <button
               type="submit"
-              className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-xs transition shadow-xs"
+              className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-xs transition shadow-xs shrink-0 flex items-center gap-1.5"
             >
-              + Tambah
+              <Plus className="w-4 h-4" />
+              <span>Tambah</span>
             </button>
           </form>
+
+          {/* Real-time Autocomplete Suggestions Overlay */}
+          {showSuggestions && searchTrim.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-zinc-200 rounded-2xl shadow-xl z-30 max-h-80 overflow-y-auto divide-y divide-zinc-100">
+              <div className="px-3.5 py-2 bg-zinc-50/90 border-b border-zinc-100 flex items-center justify-between text-[11px] font-semibold text-zinc-500">
+                <span>Hasil Pencarian ({searchResults.length})</span>
+                <span className="text-[10px] font-normal text-zinc-400">Klik produk untuk menambah ke keranjang</span>
+              </div>
+
+              {searchResults.length === 0 ? (
+                <div className="p-4 text-center text-xs text-zinc-500">
+                  <p className="font-semibold text-zinc-700">Tidak ada produk yang cocok</p>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">
+                    Kata kunci "{barcodeInput}" tidak ditemukan pada Nama, SKU / Barcode 1, Barcode 2, atau Kategori.
+                  </p>
+                </div>
+              ) : (
+                searchResults.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      addProductToCart(p);
+                      setBarcodeInput('');
+                      setShowSuggestions(false);
+                      barcodeInputRef.current?.focus();
+                    }}
+                    className="w-full text-left p-3 hover:bg-emerald-50/50 transition flex items-center justify-between gap-3 group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {p.photoUrl ? (
+                        <img
+                          src={formatPhotoUrl(p.photoUrl)}
+                          alt={p.name}
+                          referrerPolicy="no-referrer"
+                          className="w-10 h-10 rounded-lg object-cover bg-zinc-100 border border-zinc-200 shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-400 shrink-0">
+                          <Package className="w-5 h-5" />
+                        </div>
+                      )}
+
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs text-zinc-900 group-hover:text-emerald-700 transition truncate">
+                          {p.name}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500 mt-0.5">
+                          {p.barcode1 && (
+                            <span className="bg-zinc-100 px-1.5 py-0.5 rounded font-mono text-[10px] text-zinc-700 border border-zinc-200/60">
+                              SKU/B1: {p.barcode1}
+                            </span>
+                          )}
+                          {p.barcode2 && (
+                            <span className="bg-zinc-100 px-1.5 py-0.5 rounded font-mono text-[10px] text-zinc-600 border border-zinc-200/60">
+                              B2: {p.barcode2}
+                            </span>
+                          )}
+                          {p.category && (
+                            <span className="bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded text-[10px] font-medium border border-emerald-100">
+                              {p.category}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className={`inline-block px-2 py-0.5 rounded-lg text-xs font-bold ${
+                        p.stock <= 0
+                          ? 'bg-rose-100 text-rose-700'
+                          : p.stock <= p.minStock
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        Stok: {p.stock} {p.unit || 'pcs'}
+                      </span>
+                      <div className="text-[10px] font-semibold text-emerald-600 opacity-0 group-hover:opacity-100 transition mt-0.5">
+                        + Tambah ke Keranjang
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
 
           {/* Quick Select Dropdown for convenience */}
           <div className="pt-2">
@@ -330,12 +477,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                 }
               }}
               defaultValue=""
-              className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-700 focus:outline-none"
+              className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-700 focus:outline-none cursor-pointer hover:bg-zinc-100/80 transition"
             >
               <option value="" disabled>-- Pilih Produk Manual --</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} (Stok: {p.stock}) - B1: {p.barcode1 || '-'}
+                  {p.name} (Stok: {p.stock} {p.unit || ''}) {p.barcode1 ? `- SKU/B1: ${p.barcode1}` : ''}
                 </option>
               ))}
             </select>
