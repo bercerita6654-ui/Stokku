@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Product, Transaction } from '../types';
 import { formatDateIndonesian, formatRupiah } from '../lib/storage';
+import { DashboardCharts } from './DashboardCharts';
 
 interface DashboardOverviewProps {
   products: Product[];
@@ -190,6 +191,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </p>
         </div>
       </div>
+
+      {/* Visual Analytics Charts Section (Recharts) */}
+      <DashboardCharts products={products} transactions={transactions} />
 
       {/* Main Content Grid: Low Stock Alert + Recent Transactions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

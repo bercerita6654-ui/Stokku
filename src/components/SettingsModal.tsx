@@ -400,20 +400,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     // 2. Hapus Transaksi Otomatis jika action === 'DELETE_TRANSACTION'
     if (action === 'DELETE_TRANSACTION') {
-      var txSheet = ss.getSheetByName('Transaksi');
-      if (txSheet && data.id) {
-        var lastRow = txSheet.getLastRow();
+      var targetSheetNames = ['Update Stok', 'update stok', 'UPDATE STOK', 'Transaksi', 'transaksi', 'Log Stok', 'Riwayat Stok', 'History Stok'];
+      var sheetsToSearch = [];
+      
+      for (var s = 0; s < targetSheetNames.length; s++) {
+        var sh = ss.getSheetByName(targetSheetNames[s]);
+        if (sh && sheetsToSearch.indexOf(sh) === -1) {
+          sheetsToSearch.push(sh);
+        }
+      }
+      
+      if (sheetsToSearch.length === 0) {
+        sheetsToSearch = ss.getSheets();
+      }
+
+      var deletedRowsCount = 0;
+      for (var i = 0; i < sheetsToSearch.length; i++) {
+        var sheet = sheetsToSearch[i];
+        if (!sheet) continue;
+        var lastRow = sheet.getLastRow();
+        var lastCol = sheet.getLastColumn();
+        if (lastRow < 2 || lastCol < 1) continue;
+        
         for (var r = lastRow; r >= 2; r--) {
-          if (txSheet.getRange(r, 2).getValue().toString() === data.id.toString()) {
-            txSheet.deleteRow(r);
+          var rowVals = sheet.getRange(r, 1, 1, lastCol).getValues()[0].map(function(v){ return v.toString().trim(); });
+          var rowStr = rowVals.join(' ');
+          if (data.id && rowStr.indexOf(data.id.toString().trim()) !== -1) {
+            sheet.deleteRow(r);
+            deletedRowsCount++;
           }
         }
       }
-      return ContentService.createTextOutput(JSON.stringify({ success: true, action: 'DELETE_TRANSACTION' })).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ success: true, action: 'DELETE_TRANSACTION', deletedRows: deletedRowsCount })).setMimeType(ContentService.MimeType.JSON);
     }
 
     // 3. Tambah Transaksi Baru (Default)
-    var sheet = ss.getSheetByName('Transaksi') || ss.insertSheet('Transaksi');
+    var sheet = ss.getSheetByName('Update Stok') || ss.getSheetByName('update stok') || ss.getSheetByName('UPDATE STOK') || ss.getSheetByName('Transaksi') || ss.insertSheet('Update Stok');
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(['Waktu', 'ID Transaksi', 'Tipe', 'Nama Produk', 'Barcode', 'Jumlah (Qty)', 'Harga Satuan', 'Subtotal', 'Operator', 'Catatan']);
       sheet.getRange(1, 1, 1, 10).setFontWeight('bold').setBackground('#f3f4f6');
