@@ -20,6 +20,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { Transaction, TransactionType } from '../types';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { formatDateIndonesian, formatPhotoUrl, deleteTransaction, updateTransaction, clearAllTransactions } from '../lib/storage';
 
 interface TransactionHistoryProps {
@@ -33,16 +34,17 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transact
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [deletingTx, setDeletingTx] = useState<Transaction | null>(null);
 
   const handleDeleteTx = (tx: Transaction) => {
-    const confirmMsg = `Apakah Anda yakin ingin menghapus transaksi ini?
-Detail: ${tx.totalQuantity} item (${tx.type === 'MASUK' ? 'Barang Masuk' : 'Barang Terjual'})
-Catatan: Stok produk terkait akan disesuaikan otomatis.`;
+    setDeletingTx(tx);
+  };
 
-    if (window.confirm(confirmMsg)) {
-      deleteTransaction(tx.id);
-      if (onRefreshData) onRefreshData();
-    }
+  const confirmDeleteTx = () => {
+    if (!deletingTx) return;
+    deleteTransaction(deletingTx.id);
+    if (onRefreshData) onRefreshData();
+    setDeletingTx(null);
   };
 
   const handleSaveEditTx = () => {
@@ -579,6 +581,18 @@ Catatan: Stok produk terkait akan disesuaikan otomatis.`;
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Popup */}
+      <DeleteConfirmModal
+        isOpen={!!deletingTx}
+        title="Hapus Transaksi Ini"
+        message="Apakah Anda yakin ingin menghapus transaksi ini? Stok produk terkait akan disesuaikan secara otomatis."
+        itemName={deletingTx ? `Transaksi #${deletingTx.id}` : ''}
+        itemDetail={deletingTx ? `${deletingTx.type === 'MASUK' ? 'Barang Masuk' : 'Barang Terjual'} • Total Qty: ${deletingTx.totalQuantity}` : ''}
+        confirmButtonText="Hapus Transaksi"
+        onConfirm={confirmDeleteTx}
+        onCancel={() => setDeletingTx(null)}
+      />
     </div>
   );
 };

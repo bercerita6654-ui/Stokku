@@ -18,6 +18,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { Product, FilterOptions } from '../types';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { formatRupiah, saveProducts, formatPhotoUrl, deleteProduct } from '../lib/storage';
 
 interface ProductCatalogProps {
@@ -41,6 +42,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   // Selected Product for Details or Editing
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isNewProductModal, setIsNewProductModal] = useState(false);
+  const [deletingProduct, setDeletingProduct] = useState<{ id: string; name: string } | null>(null);
   const [showEditMenu, setShowEditMenu] = useState(false);
 
   // Dynamic Categories from Products list
@@ -108,13 +110,17 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
 
   // Handle Delete Product
   const handleDeleteProduct = (productId: string, productName: string) => {
-    if (window.confirm(`Apakah Anda yakin ingin menghapus produk "${productName}"? Data stok dan riwayat akan disesuaikan.`)) {
-      const updated = deleteProduct(productId);
-      onProductsUpdated(updated);
-      if (editingProduct?.id === productId) {
-        setEditingProduct(null);
-      }
+    setDeletingProduct({ id: productId, name: productName });
+  };
+
+  const confirmDeleteProduct = () => {
+    if (!deletingProduct) return;
+    const updated = deleteProduct(deletingProduct.id);
+    onProductsUpdated(updated);
+    if (editingProduct?.id === deletingProduct.id) {
+      setEditingProduct(null);
     }
+    setDeletingProduct(null);
   };
 
   // Handle Create Product
@@ -815,6 +821,18 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
           </form>
         </div>
       )}
+
+      {/* Delete Confirmation Popup */}
+      <DeleteConfirmModal
+        isOpen={!!deletingProduct}
+        title="Hapus Produk dari Katalag"
+        message="Apakah Anda yakin ingin menghapus produk ini? Produk yang dihapus tidak akan tampil di katalog."
+        itemName={deletingProduct?.name}
+        itemDetail={deletingProduct ? `ID: ${deletingProduct.id}` : ''}
+        confirmButtonText="Hapus Produk"
+        onConfirm={confirmDeleteProduct}
+        onCancel={() => setDeletingProduct(null)}
+      />
     </div>
   );
 };

@@ -24,6 +24,7 @@ import {
   DEFAULT_SHEET_URL
 } from '../lib/storage';
 import { User } from '../lib/firebase';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
 
 interface SettingsModalProps {
   syncStatus: SyncStatus;
@@ -48,6 +49,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [appsScriptUrl, setAppsScriptUrl] = useState(getStoredAppsScriptUrl());
   const [copiedCode, setCopiedCode] = useState(false);
   const [appsScriptSuccess, setAppsScriptSuccess] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSaveUrl = () => {
@@ -445,11 +447,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="flex items-center justify-between pt-2 border-t border-rose-100">
           <span className="text-xs text-zinc-500 font-medium">Reset Data Produk &amp; Histori Transaksi Lokal</span>
           <button
-            onClick={() => {
-              if (window.confirm('Apakah Anda yakin ingin mereset seluruh data lokal? Data akan diunduh ulang dari Google Spreadsheet.')) {
-                onClearAllData();
-              }
-            }}
+            onClick={() => setShowResetConfirm(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs transition border border-rose-200"
           >
             <Trash2 className="w-4 h-4" />
@@ -457,6 +455,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
         </div>
       </div>
+      {/* Reset Confirmation Popup */}
+      <DeleteConfirmModal
+        isOpen={showResetConfirm}
+        title="Reset Seluruh Data Lokal"
+        message="Apakah Anda yakin ingin mereset seluruh data lokal di peramban ini? Data katalog produk dan transaksi akan dikosongkan dan dapat diunduh ulang dari Google Spreadsheet."
+        itemName="Penyimpanan Lokal Browser (Local Cache)"
+        confirmButtonText="Reset Seluruh Data"
+        onConfirm={() => {
+          setShowResetConfirm(false);
+          onClearAllData();
+        }}
+        onCancel={() => setShowResetConfirm(false)}
+      />
     </div>
   );
 };
