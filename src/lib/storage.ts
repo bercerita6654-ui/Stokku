@@ -1,4 +1,5 @@
 import { Product, Transaction, SyncStatus } from '../types';
+import Papa from 'papaparse';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'stokku_products_v1',
@@ -56,6 +57,185 @@ export function getStoredSheetUrl(): string {
 export function saveSheetUrl(url: string): void {
   const normalized = normalizeGoogleSheetCsvUrl(url);
   localStorage.setItem(STORAGE_KEYS.SHEET_URL, normalized || DEFAULT_SHEET_URL);
+}
+
+/**
+ * Direct browser client-side fetch & parse of Google Spreadsheet CSV.
+ * Allows syncing even when deployed as a static site on GitHub Pages / Vercel without a backend.
+ */
+export async function fetchSpreadsheetProductsDirectly(rawUrl: string): Promise<Array<{
+  id: string;
+  barcode1: string;
+  barcode2: string;
+  photoUrl: string;
+  name: string;
+  price?: number;
+  category?: string;
+}>> {
+  const candidates: string[] = [];
+  const primaryUrl = normalizeGoogleSheetCsvUrl(rawUrl);
+  candidates.push(primaryUrl);
+
+  const idMatch = rawUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (idMatch && idMatch[1]) {
+    const spreadsheetId = idMatch[1];
+    let gid = '';
+    const gidMatch = rawUrl.match(/[?&]gid=([0-9]+)/) || rawUrl.match(/#gid=([0-9]+)/);
+    if (gidMatch && gidMatch[1]) {
+      gid = gidMatch[1];
+    }
+    const gvizUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv${gid ? `&gid=${gid}` : ''}`;
+    if (!candidates.includes(gvizUrl)) {
+      candidates.push(gvizUrl);
+    }
+  }
+
+  let csvText = '';
+  let lastError = '';
+
+  for (const candidate of candidates) {
+    try {
+      const res = await fetch(candidate, {
+        headers: {
+          'Accept': 'text/csv,text/plain,*/*'
+        }
+      });
+      if (!res.ok) {
+        lastError = `HTTP ${res.status}: ${res.statusText}`;
+        continue;
+      }
+      const text = await res.text();
+      const isHtml = text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html') || text.includes('google-site-verification');
+      if (isHtml) {
+        lastError = "Spreadsheet mengembalikan halaman HTML. Pastikan akses Google Sheet diatur ke 'Siapa saja yang memiliki link' (Anyone with link).";
+        continue;
+      }
+      csvText = text;
+      break;
+    } catch (e: any) {
+      lastError = e.message || 'Gagal koneksi langsung ke Google Sheet';
+    }
+  }
+
+  if (!csvText) {
+    throw new Error(lastError || "Gagal mengakses Google Spreadsheet. Pastikan Spreadsheet publik ('Siapa saja yang memiliki link').");
+  }
+
+  const parsed = Papa.parse<string[]>(csvText, {
+    skipEmptyLines: true,
+    header: false
+  });
+
+  const rawRows = parsed.data;
+  if (!rawRows || rawRows.length === 0) {
+    return [];
+  }
+
+  // Dynamic Column Header Detection
+  let barcode1Idx = -1;
+  let barcode2Idx = -1;
+  let photoUrlIdx = -1;
+  let nameIdx = -1;
+  let priceIdx = -1;
+  let categoryIdx = -1;
+  let stockIdx = -1;
+
+  let startIdx = 0;
+  const firstRow = rawRows[0];
+  if (firstRow && firstRow.length > 0) {
+    let matchedHeaderCount = 0;
+    firstRow.forEach((colStr, idx) => {
+      const col = (colStr || '').toLowerCase().trim();
+      if (col.includes('barcode pg') || col.includes('barcode 1') || col.includes('kode 1') || (col === 'barcode' && barcode1Idx === -1)) {
+        barcode1Idx = idx;
+        matchedHeaderCount++;
+      } else if (col.includes('barcode gl') || col.includes('barcode 2') || col.includes('kode 2') || col.includes('ean')) {
+        barcode2Idx = idx;
+        matchedHeaderCount++;
+      } else if (col.includes('foto') || col.includes('link') || col.includes('gambar') || col.includes('image')) {
+        if (photoUrlIdx === -1) photoUrlIdx = idx;
+        matchedHeaderCount++;
+      } else if (col.includes('nama') || col.includes('product') || col.includes('item') || col.includes('barang')) {
+        if (nameIdx === -1) nameIdx = idx;
+        matchedHeaderCount++;
+      } else if (col.includes('harga pg') || col === 'harga' || (col.includes('harga') && priceIdx === -1)) {
+        priceIdx = idx;
+        matchedHeaderCount++;
+      } else if (col.includes('kategori') || col.includes('category') || col.includes('tipe')) {
+        categoryIdx = idx;
+        matchedHeaderCount++;
+      } else if (col.includes('stok') || col.includes('stock') || col.includes('qty')) {
+        stockIdx = idx;
+        matchedHeaderCount++;
+      }
+    });
+
+    if (matchedHeaderCount >= 2) {
+      startIdx = 1;
+    }
+  }
+
+  if (barcode1Idx === -1) barcode1Idx = 0;
+  if (barcode2Idx === -1) barcode2Idx = 1;
+  if (photoUrlIdx === -1) photoUrlIdx = 2;
+  if (nameIdx === -1) nameIdx = 3;
+  if (priceIdx === -1) priceIdx = 4;
+
+  const products: Array<{
+    id: string;
+    barcode1: string;
+    barcode2: string;
+    photoUrl: string;
+    name: string;
+    price?: number;
+    category?: string;
+  }> = [];
+
+  for (let i = startIdx; i < rawRows.length; i++) {
+    const row = rawRows[i];
+    if (!row || row.length === 0) continue;
+
+    const barcode1 = (row[barcode1Idx] || '').trim();
+    const barcode2 = (row[barcode2Idx] || '').trim();
+    const photoUrlRaw = (row[photoUrlIdx] || '').trim();
+    const name = (row[nameIdx] || '').trim();
+
+    const priceStr = priceIdx >= 0 && row[priceIdx] ? (row[priceIdx] || '').replace(/[^0-9]/g, '') : '';
+    let parsedPrice = priceStr ? parseInt(priceStr, 10) : 0;
+    if (parsedPrice > 0 && parsedPrice < 1000) {
+      parsedPrice = parsedPrice * 1000;
+    }
+
+    let category = categoryIdx >= 0 && row[categoryIdx] ? (row[categoryIdx] || '').trim() : '';
+    if (!category && name) {
+      const lowerName = name.toLowerCase();
+      if (lowerName.includes('pb') || lowerName.includes('powerbank') || lowerName.includes('power bank') || lowerName.includes('power depot') || lowerName.includes('powertiny') || lowerName.includes('sleekvolt') || lowerName.includes('magipi') || lowerName.includes('powermag') || lowerName.includes('glamvolt') || lowerName.includes('mini pix') || lowerName.includes('sunny power') || lowerName.includes('bolt') || lowerName.includes('mah')) {
+        category = 'Powerbank';
+      } else if (lowerName.includes('cable') || lowerName.includes('kabel') || lowerName.includes('type-c') || lowerName.includes('lightning') || lowerName.includes('braided') || lowerName.includes('magloop') || lowerName.includes('ice link')) {
+        category = 'Kabel Data';
+      } else if (lowerName.includes('earphone') || lowerName.includes('earbuds') || lowerName.includes('headphone') || lowerName.includes('headset') || lowerName.includes('audio') || lowerName.includes('stereo')) {
+        category = 'Earphone';
+      } else if (lowerName.includes('charger') || lowerName.includes('gan') || lowerName.includes('adapter') || lowerName.includes('wall charger')) {
+        category = 'Charger';
+      } else {
+        category = 'Aksesori';
+      }
+    }
+
+    if (!barcode1 && !barcode2 && !name) continue;
+
+    products.push({
+      id: `prod_${i}_${barcode1 || barcode2 || Math.random().toString(36).substring(2, 6)}`,
+      barcode1,
+      barcode2,
+      photoUrl: formatPhotoUrl(photoUrlRaw),
+      name,
+      price: parsedPrice,
+      category
+    });
+  }
+
+  return products;
 }
 
 export function getStoredAppsScriptUrl(): string {

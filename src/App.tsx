@@ -7,6 +7,7 @@ import {
   saveSyncStatus, 
   mergeSpreadsheetProducts, 
   getStoredSheetUrl,
+  fetchSpreadsheetProductsDirectly,
   saveProducts,
   saveTransactions
 } from './lib/storage';
@@ -44,7 +45,7 @@ export default function App() {
     handleSyncSpreadsheet();
   }, []);
 
-  // Sync spreadsheet from backend API
+  // Sync spreadsheet from backend API or directly from browser (for GitHub Pages/static hosting)
   const handleSyncSpreadsheet = useCallback(async (customUrl?: string) => {
     const targetUrl = customUrl || getStoredSheetUrl();
 
@@ -60,20 +61,33 @@ export default function App() {
     });
 
     try {
-      const res = await fetch('/api/sync-csv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: targetUrl })
-      });
+      let fetchedProducts: any[] = [];
 
-      const data = await res.json();
+      // 1. First try backend proxy /api/sync-csv (if Node server is running)
+      try {
+        const res = await fetch('/api/sync-csv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: targetUrl })
+        });
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Gagal menyinkronkan data Google Spreadsheet');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success && Array.isArray(data.products)) {
+            fetchedProducts = data.products;
+          }
+        }
+      } catch (e) {
+        console.info('Backend /api/sync-csv unreachable, switching to direct client-side Google Sheet fetch...');
       }
 
-      // Merge fetched products
-      const merged = mergeSpreadsheetProducts(data.products || []);
+      // 2. If backend proxy wasn't used or returned no products (e.g. static site on GitHub Pages / Vercel), fetch directly in browser
+      if (!fetchedProducts || fetchedProducts.length === 0) {
+        fetchedProducts = await fetchSpreadsheetProductsDirectly(targetUrl);
+      }
+
+      // Merge fetched products with local state
+      const merged = mergeSpreadsheetProducts(fetchedProducts || []);
       setProducts(merged);
 
       const successStatus: SyncStatus = {
@@ -89,7 +103,7 @@ export default function App() {
       const errorStatus: SyncStatus = {
         lastSynced: getStoredSyncStatus().lastSynced,
         status: 'error',
-        errorMessage: err.message || 'Gagal terhubung ke Google Spreadsheet',
+        errorMessage: err.message || 'Gagal terhubung ke Google Spreadsheet. Pastikan Spreadsheet publik (Siapa saja yang memiliki link).',
         sheetUrl: targetUrl
       };
       setSyncStatus(errorStatus);

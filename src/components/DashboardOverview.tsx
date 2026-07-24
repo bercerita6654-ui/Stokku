@@ -226,6 +226,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                         <img 
                           src={prod.photoUrl} 
                           alt={prod.name}
+                          referrerPolicy="no-referrer"
                           className="w-10 h-10 rounded-lg object-cover bg-zinc-100 border border-zinc-200 shrink-0"
                           onError={(e) => {
                             (e.target as HTMLElement).style.display = 'none';
