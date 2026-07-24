@@ -1,5 +1,12 @@
 import { Product, Transaction, SyncStatus } from '../types';
 import Papa from 'papaparse';
+import { 
+  syncProductsToCloud, 
+  deleteProductFromCloud, 
+  syncTransactionsToCloud, 
+  saveSingleTransactionToCloud, 
+  deleteTransactionFromCloud 
+} from './firebase';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'stokku_products_v1',
@@ -331,6 +338,7 @@ export function getStoredProducts(): Product[] {
 export function saveProducts(products: Product[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
+    syncProductsToCloud(products);
   } catch (e) {
     console.error('Error saving products to localStorage:', e);
   }
@@ -350,6 +358,7 @@ export function getStoredTransactions(): Transaction[] {
 export function saveTransactions(transactions: Transaction[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
+    syncTransactionsToCloud(transactions);
   } catch (e) {
     console.error('Error saving transactions to localStorage:', e);
   }
@@ -565,6 +574,7 @@ export function deleteTransaction(transactionId: string): void {
 
   const updatedTransactions = currentTransactions.filter((t) => t.id !== transactionId);
   saveTransactions(updatedTransactions);
+  deleteTransactionFromCloud(transactionId);
 
   // Otomatis kirim perintah hapus ke Google Sheet / Apps Script
   sendPayloadToGoogleSheet({
@@ -645,6 +655,7 @@ export function deleteProduct(productId: string): Product[] {
   const productToDelete = currentProducts.find((p) => p.id === productId);
   const updated = currentProducts.filter((p) => p.id !== productId);
   saveProducts(updated);
+  deleteProductFromCloud(productId);
 
   if (productToDelete) {
     // Otomatis kirim perintah hapus ke Google Sheet / Apps Script
