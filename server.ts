@@ -13,7 +13,7 @@ interface CSVProductRow {
   name: string;
   price?: number;
   category?: string;
-  initialStock?: number;
+  stock?: number;
 }
 
 export function normalizeGoogleSheetCsvUrl(url: string): string {
@@ -283,6 +283,15 @@ async function startServer() {
           }
         }
 
+        let parsedStock: number | undefined = undefined;
+        if (stockIdx >= 0 && row[stockIdx] !== undefined && row[stockIdx] !== '') {
+          const stockClean = (row[stockIdx] || '').replace(/[^0-9-]/g, '');
+          if (stockClean) {
+            const num = parseInt(stockClean, 10);
+            if (!isNaN(num)) parsedStock = num;
+          }
+        }
+
         // Skip completely empty rows
         if (!barcode1 && !barcode2 && !name) continue;
 
@@ -296,7 +305,8 @@ async function startServer() {
           photoUrl: processedPhotoUrl,
           name: name || `Produk ${i}`,
           price: parsedPrice,
-          category: category
+          category: category,
+          stock: parsedStock
         });
       }
 

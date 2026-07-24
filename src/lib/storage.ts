@@ -71,6 +71,7 @@ export async function fetchSpreadsheetProductsDirectly(rawUrl: string): Promise<
   name: string;
   price?: number;
   category?: string;
+  stock?: number;
 }>> {
   const candidates: string[] = [];
   const primaryUrl = normalizeGoogleSheetCsvUrl(rawUrl);
@@ -189,6 +190,7 @@ export async function fetchSpreadsheetProductsDirectly(rawUrl: string): Promise<
     name: string;
     price?: number;
     category?: string;
+    stock?: number;
   }> = [];
 
   for (let i = startIdx; i < rawRows.length; i++) {
@@ -222,6 +224,15 @@ export async function fetchSpreadsheetProductsDirectly(rawUrl: string): Promise<
       }
     }
 
+    let parsedStock: number | undefined = undefined;
+    if (stockIdx >= 0 && row[stockIdx] !== undefined && row[stockIdx] !== '') {
+      const stockStr = (row[stockIdx] || '').replace(/[^0-9-]/g, '');
+      if (stockStr) {
+        const val = parseInt(stockStr, 10);
+        if (!isNaN(val)) parsedStock = val;
+      }
+    }
+
     if (!barcode1 && !barcode2 && !name) continue;
 
     products.push({
@@ -231,7 +242,8 @@ export async function fetchSpreadsheetProductsDirectly(rawUrl: string): Promise<
       photoUrl: formatPhotoUrl(photoUrlRaw),
       name,
       price: parsedPrice,
-      category
+      category,
+      stock: parsedStock
     });
   }
 
