@@ -42,17 +42,21 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const lowStockProducts = products.filter((p) => p.stock <= p.minStock);
   const outOfStockProducts = products.filter((p) => p.stock === 0);
 
-  // Total Inbound & Outbound items from transactions
-  let totalMasukQty = 0;
-  let totalTerjualQty = 0;
+  // Total Inbound & Outbound items sourced from Update Stock sheet
+  let totalMasukQty = products.reduce((acc, p) => acc + (p.totalIncoming ?? 0), 0);
+  let totalTerjualQty = products.reduce((acc, p) => acc + (p.totalOutgoing ?? 0), 0);
+  const totalStockQty = products.reduce((acc, p) => acc + (p.stock || 0), 0);
 
-  transactions.forEach((t) => {
-    if (t.type === 'MASUK') {
-      totalMasukQty += t.totalQuantity;
-    } else if (t.type === 'TERJUAL') {
-      totalTerjualQty += t.totalQuantity;
-    }
-  });
+  // Fallback to local transactions if product incoming/outgoing sums are 0
+  if (totalMasukQty === 0 && totalTerjualQty === 0 && transactions.length > 0) {
+    transactions.forEach((t) => {
+      if (t.type === 'MASUK') {
+        totalMasukQty += t.totalQuantity;
+      } else if (t.type === 'TERJUAL') {
+        totalTerjualQty += t.totalQuantity;
+      }
+    });
+  }
 
   const recentTransactions = transactions.slice(0, 5);
 
@@ -117,12 +121,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-2xl font-extrabold text-zinc-900">{totalProducts}</span>
+            <div>
+              <span className="text-2xl font-extrabold text-zinc-900">{totalProducts}</span>
+              <span className="text-xs text-zinc-500 font-semibold ml-1.5">({totalStockQty} Pcs)</span>
+            </div>
             <span className="text-xs text-zinc-500 group-hover:text-zinc-900 font-medium flex items-center gap-1">
               Lihat Katalog <ChevronRight className="w-3 h-3" />
             </span>
           </div>
-          <p className="text-[11px] text-zinc-400 mt-1">Disinkronkan dari Google Sheets</p>
+          <p className="text-[11px] text-zinc-400 mt-1">Diambil dari sheet Update Stock</p>
         </div>
 
         {/* Total Masuk */}
