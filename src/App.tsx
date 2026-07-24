@@ -23,6 +23,8 @@ import {
   loginWithGoogle, 
   logoutFirebase, 
   onAuthStateChanged, 
+  subscribeToCloudProducts,
+  subscribeToCloudTransactions,
   User 
 } from './lib/firebase';
 
@@ -75,15 +77,40 @@ export default function App() {
     }
   };
 
-  // Load local storage data on initial mount
+  // Load local storage data and subscribe to real-time Cloud Sync across devices
   useEffect(() => {
     const loadedProds = getStoredProducts();
     const loadedTrxs = getStoredTransactions();
     setProducts(loadedProds);
     setTransactions(loadedTrxs);
 
+    // Real-time Firestore Cloud listener for Products across all devices
+    const unsubCloudProducts = subscribeToCloudProducts((cloudProducts) => {
+      if (cloudProducts && cloudProducts.length > 0) {
+        setProducts(cloudProducts);
+        try {
+          localStorage.setItem('stokku_products_v1', JSON.stringify(cloudProducts));
+        } catch (e) {}
+      }
+    });
+
+    // Real-time Firestore Cloud listener for Transactions across all devices
+    const unsubCloudTransactions = subscribeToCloudTransactions((cloudTransactions) => {
+      if (cloudTransactions && cloudTransactions.length > 0) {
+        setTransactions(cloudTransactions);
+        try {
+          localStorage.setItem('stokku_transactions_v1', JSON.stringify(cloudTransactions));
+        } catch (e) {}
+      }
+    });
+
     // Sync with Google Sheets automatically on load
     handleSyncSpreadsheet();
+
+    return () => {
+      unsubCloudProducts();
+      unsubCloudTransactions();
+    };
   }, []);
 
   // Sync spreadsheet from backend API or directly from browser (for GitHub Pages/static hosting)
