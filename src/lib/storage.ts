@@ -250,7 +250,7 @@ export function saveAppsScriptUrl(url: string): void {
 /**
  * Automatically sends transaction data to Google Apps Script Web App
  */
-export async function sendTransactionToGoogleSheet(transaction: Transaction): Promise<{ success: boolean; message?: string }> {
+export async function sendPayloadToGoogleSheet(payload: any): Promise<{ success: boolean; message?: string }> {
   const appsScriptUrl = getStoredAppsScriptUrl();
   if (!appsScriptUrl) {
     return { success: false, message: 'URL Web App Apps Script belum diatur' };
@@ -265,21 +265,21 @@ export async function sendTransactionToGoogleSheet(transaction: Transaction): Pr
       },
       body: JSON.stringify({
         appsScriptUrl,
-        payload: transaction
+        payload
       })
     });
 
     if (res.ok) {
       const data = await res.json();
       if (data && data.success) {
-        return { success: true, message: 'Berhasil dikirim ke Google Sheet' };
+        return { success: true, message: 'Berhasil disinkronkan ke Google Sheet' };
       }
     }
   } catch (err) {
     console.info('Backend proxy /api/sync-transaction tidak tersedia, menggunakan fetch browser langsung...');
   }
 
-  // 2. Fallback kirim langsung dari browser peramban (cocok untuk GitHub Pages / Static hosting)
+  // 2. Fallback kirim langsung dari browser peramban
   try {
     await fetch(appsScriptUrl, {
       method: 'POST',
@@ -287,13 +287,17 @@ export async function sendTransactionToGoogleSheet(transaction: Transaction): Pr
       headers: {
         'Content-Type': 'text/plain'
       },
-      body: JSON.stringify(transaction)
+      body: JSON.stringify(payload)
     });
-    return { success: true, message: 'Transaksi berhasil dikirim langsung ke Google Sheet' };
+    return { success: true, message: 'Data berhasil dikirim ke Google Sheet' };
   } catch (directErr: any) {
-    console.error('Gagal mengirim transaksi ke Google Sheet:', directErr);
+    console.error('Gagal mengirim data ke Google Sheet:', directErr);
     return { success: false, message: directErr.message || 'Gagal koneksi ke Google Apps Script' };
   }
+}
+
+export async function sendTransactionToGoogleSheet(transaction: Transaction): Promise<{ success: boolean; message?: string }> {
+  return sendPayloadToGoogleSheet(transaction);
 }
 
 export function getStoredProducts(): Product[] {
@@ -549,6 +553,15 @@ export function deleteTransaction(transactionId: string): void {
 
   const updatedTransactions = currentTransactions.filter((t) => t.id !== transactionId);
   saveTransactions(updatedTransactions);
+
+  // Otomatis kirim perintah hapus ke Google Sheet / Apps Script
+  sendPayloadToGoogleSheet({
+    action: 'DELETE_TRANSACTION',
+    id: txToDelete.id,
+    type: txToDelete.type,
+    items: txToDelete.items,
+    timestamp: new Date().toISOString()
+  });
 }
 
 /**
@@ -617,8 +630,22 @@ export function clearAllTransactions(): void {
  */
 export function deleteProduct(productId: string): Product[] {
   const currentProducts = getStoredProducts();
+  const productToDelete = currentProducts.find((p) => p.id === productId);
   const updated = currentProducts.filter((p) => p.id !== productId);
   saveProducts(updated);
+
+  if (productToDelete) {
+    // Otomatis kirim perintah hapus ke Google Sheet / Apps Script
+    sendPayloadToGoogleSheet({
+      action: 'DELETE_PRODUCT',
+      id: productToDelete.id,
+      name: productToDelete.name,
+      barcode1: productToDelete.barcode1,
+      barcode2: productToDelete.barcode2,
+      timestamp: new Date().toISOString()
+    });
+  }
+
   return updated;
 }
 

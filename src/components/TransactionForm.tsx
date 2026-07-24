@@ -18,6 +18,7 @@ import {
 import { Product, TransactionType, TransactionItem } from '../types';
 import { findProductByBarcode, recordTransaction, getStoredOperator, saveStoredOperator, formatPhotoUrl } from '../lib/storage';
 import { User as FirebaseUser } from '../lib/firebase';
+import { TransactionSuccessModal, SavedTransactionDetails } from './TransactionSuccessModal';
 
 interface TransactionFormProps {
   products: Product[];
@@ -28,6 +29,7 @@ interface TransactionFormProps {
   scannedBarcode?: string | null;
   onClearScannedBarcode?: () => void;
   currentUser?: FirebaseUser | null;
+  onNavigateToHistory?: () => void;
 }
 
 export const TransactionForm: React.FC<TransactionFormProps> = ({
@@ -38,7 +40,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   onOpenScanner,
   scannedBarcode,
   onClearScannedBarcode,
-  currentUser
+  currentUser,
+  onNavigateToHistory
 }) => {
   const [trxType, setTrxType] = useState<TransactionType>(initialType);
   const [barcodeInput, setBarcodeInput] = useState('');
@@ -48,6 +51,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     currentUser?.displayName || currentUser?.email?.split('@')[0] || getStoredOperator()
   );
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [successModalData, setSuccessModalData] = useState<SavedTransactionDetails | null>(null);
 
   // Sync operator with logged-in Google User
   useEffect(() => {
@@ -186,6 +190,15 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       return;
     }
 
+    const savedTrxInfo: SavedTransactionDetails = {
+      type: trxType,
+      items: [...cartItems],
+      totalQuantity,
+      operator: operator || 'Admin Stok',
+      note: note.trim(),
+      createdAt: new Date().toISOString()
+    };
+
     recordTransaction({
       type: trxType,
       items: cartItems,
@@ -202,6 +215,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       type: 'success',
       text: `Berhasil menyimpan transaksi produk ${trxType === 'MASUK' ? 'MASUK' : 'TERJUAL'}!`
     });
+    setSuccessModalData(savedTrxInfo);
 
     onTransactionSaved();
     setTimeout(() => setFeedbackMessage(null), 3000);
@@ -476,6 +490,16 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
           </button>
         </div>
       </div>
+      {/* Success Modal Popup */}
+      <TransactionSuccessModal
+        isOpen={!!successModalData}
+        data={successModalData}
+        onClose={() => {
+          setSuccessModalData(null);
+          barcodeInputRef.current?.focus();
+        }}
+        onNavigateToHistory={onNavigateToHistory}
+      />
     </div>
   );
 };

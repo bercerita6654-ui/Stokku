@@ -375,14 +375,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 const code = `function doPost(e) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName('Transaksi') || ss.insertSheet('Transaksi');
+    var data = JSON.parse(e.postData.contents);
+    var action = data.action || 'ADD_TRANSACTION';
     
+    // 1. Hapus Produk Otomatis dari Sheet jika action === 'DELETE_PRODUCT'
+    if (action === 'DELETE_PRODUCT') {
+      var prodSheet = ss.getSheetByName('Produk') || ss.getSheets()[0];
+      if (prodSheet) {
+        var lastRow = prodSheet.getLastRow();
+        var b1 = (data.barcode1 || '').toString().trim().toLowerCase();
+        var b2 = (data.barcode2 || '').toString().trim().toLowerCase();
+        var nameTarget = (data.name || '').toString().trim().toLowerCase();
+        
+        for (var r = lastRow; r >= 1; r--) {
+          var rowVals = prodSheet.getRange(r, 1, 1, prodSheet.getLastColumn()).getValues()[0].map(function(v){ return v.toString().trim().toLowerCase(); });
+          if ((b1 && rowVals.indexOf(b1) !== -1) || (b2 && rowVals.indexOf(b2) !== -1) || (nameTarget && rowVals.indexOf(nameTarget) !== -1)) {
+            prodSheet.deleteRow(r);
+            break;
+          }
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({ success: true, action: 'DELETE_PRODUCT' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 2. Hapus Transaksi Otomatis jika action === 'DELETE_TRANSACTION'
+    if (action === 'DELETE_TRANSACTION') {
+      var txSheet = ss.getSheetByName('Transaksi');
+      if (txSheet && data.id) {
+        var lastRow = txSheet.getLastRow();
+        for (var r = lastRow; r >= 2; r--) {
+          if (txSheet.getRange(r, 2).getValue().toString() === data.id.toString()) {
+            txSheet.deleteRow(r);
+          }
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({ success: true, action: 'DELETE_TRANSACTION' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 3. Tambah Transaksi Baru (Default)
+    var sheet = ss.getSheetByName('Transaksi') || ss.insertSheet('Transaksi');
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(['Waktu', 'ID Transaksi', 'Tipe', 'Nama Produk', 'Barcode', 'Jumlah (Qty)', 'Harga Satuan', 'Subtotal', 'Operator', 'Catatan']);
       sheet.getRange(1, 1, 1, 10).setFontWeight('bold').setBackground('#f3f4f6');
     }
     
-    var data = JSON.parse(e.postData.contents);
     var timestamp = new Date();
     var type = data.type || 'MASUK';
     var operator = data.operator || 'Admin';

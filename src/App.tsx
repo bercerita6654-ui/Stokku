@@ -235,6 +235,7 @@ export default function App() {
             scannedBarcode={scannedBarcode}
             onClearScannedBarcode={() => setScannedBarcode(null)}
             currentUser={currentUser}
+            onNavigateToHistory={() => setActiveTab('history')}
           />
         )}
 
