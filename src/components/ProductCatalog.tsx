@@ -227,16 +227,21 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari Nama Produk, Barcode 1, Barcode 2, Kategori..."
-              className="w-full pl-10 pr-8 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900 transition"
+              placeholder="Cari Produk (Nama, Barcode 1, Barcode 2, Kategori)..."
+              className="w-full pl-10 pr-20 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900 transition"
             />
-            {searchQuery && (
+            {searchQuery ? (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 bg-zinc-200/60 p-1 rounded-full transition"
+                title="Hapus pencarian"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-3 h-3" />
               </button>
+            ) : (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-medium text-zinc-400 pointer-events-none hidden sm:inline">
+                Cari Real-time
+              </span>
             )}
           </div>
 
@@ -247,17 +252,17 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="bg-transparent text-xs font-semibold text-zinc-700 focus:outline-none cursor-pointer w-full"
             >
-              <option value="all">Semua Kategori ({products.length})</option>
+              <option value="all">Semua Kategori ({products.length} Produk)</option>
               {availableCategories.map((cat) => (
                 <option key={cat} value={cat}>
-                  {cat} ({products.filter((p) => p.category === cat).length})
+                  📁 {cat} ({products.filter((p) => p.category === cat).length})
                 </option>
               ))}
             </select>
             {selectedCategory !== 'all' && (
               <button
                 onClick={() => setSelectedCategory('all')}
-                className="text-zinc-400 hover:text-zinc-600 shrink-0"
+                className="text-zinc-400 hover:text-zinc-600 shrink-0 p-1 hover:bg-zinc-200 rounded-lg transition"
                 title="Reset Filter Kategori"
               >
                 <X className="w-3.5 h-3.5" />
@@ -265,6 +270,53 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
             )}
           </div>
         </div>
+
+        {/* Active Filters Summary Bar (if active) */}
+        {(searchQuery.trim() !== '' || selectedCategory !== 'all' || stockFilter !== 'all') && (
+          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-zinc-100/80 rounded-xl text-xs border border-zinc-200/80">
+            <div className="flex flex-wrap items-center gap-2 text-zinc-600">
+              <span className="font-semibold text-zinc-800">Filter Aktif:</span>
+              {searchQuery.trim() !== '' && (
+                <span className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-zinc-200 text-zinc-800 font-medium text-[11px]">
+                  Cari: "{searchQuery}"
+                  <button onClick={() => setSearchQuery('')} className="hover:text-rose-500 ml-0.5">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {selectedCategory !== 'all' && (
+                <span className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-zinc-200 text-zinc-800 font-medium text-[11px]">
+                  Kategori: {selectedCategory}
+                  <button onClick={() => setSelectedCategory('all')} className="hover:text-rose-500 ml-0.5">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {stockFilter !== 'all' && (
+                <span className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-zinc-200 text-zinc-800 font-medium text-[11px]">
+                  Stok: {stockFilter === 'available' ? 'Ada' : stockFilter === 'low' ? 'Menipis' : 'Habis'}
+                  <button onClick={() => setStockFilter('all')} className="hover:text-rose-500 ml-0.5">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              <span className="text-[11px] text-zinc-400 font-medium">
+                ({filteredProducts.length} hasil ditemukan)
+              </span>
+            </div>
+
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory('all');
+                setStockFilter('all');
+              }}
+              className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:underline shrink-0"
+            >
+              Reset Semua Filter
+            </button>
+          </div>
+        )}
 
         {/* Filter Chips Row: Categories & Stock Status */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-zinc-100">
@@ -356,8 +408,25 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
           <Package className="w-12 h-12 text-zinc-300 mx-auto mb-3" />
           <h3 className="font-bold text-zinc-700 text-sm">Produk Tidak Ditemukan</h3>
           <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto">
-            Coba ubah kata kunci pencarian atau pastikan telah menyinkronkan data dari Google Sheets.
+            {searchQuery || selectedCategory !== 'all' || stockFilter !== 'all'
+              ? `Tidak ada produk yang cocok dengan pencarian "${searchQuery || ''}" ${
+                  selectedCategory !== 'all' ? `kategori ${selectedCategory}` : ''
+                }.`
+              : 'Belum ada produk terdaftar. Tambahkan produk baru atau sinkronkan data dari Google Sheets.'}
           </p>
+          {(searchQuery || selectedCategory !== 'all' || stockFilter !== 'all') && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory('all');
+                setStockFilter('all');
+              }}
+              className="mt-4 px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-xs transition shadow-xs inline-flex items-center gap-1.5"
+            >
+              <X className="w-4 h-4" />
+              <span>Reset Pencarian & Filter</span>
+            </button>
+          )}
         </div>
       ) : viewMode === 'grid' ? (
         /* GRID VIEW */
