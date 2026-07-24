@@ -201,11 +201,11 @@ async function startServer() {
       }
 
       // Dynamic Column Mapping
-      let barcode1Idx = 0;
-      let barcode2Idx = 1;
-      let photoUrlIdx = 2;
-      let nameIdx = 3;
-      let priceIdx = 4;
+      let barcode1Idx = -1;
+      let barcode2Idx = -1;
+      let photoUrlIdx = -1;
+      let nameIdx = -1;
+      let priceIdx = -1;
       let categoryIdx = -1;
       let stockIdx = -1;
 
@@ -215,19 +215,19 @@ async function startServer() {
         let matchedHeaderCount = 0;
         firstRow.forEach((colStr, idx) => {
           const col = (colStr || '').toLowerCase().trim();
-          if (col.includes('barcode pg') || col.includes('barcode 1') || col.includes('kode 1') || col === 'barcode') {
+          if (col.includes('barcode pg') || col.includes('barcode 1') || col.includes('kode 1') || (col === 'barcode' && barcode1Idx === -1)) {
             barcode1Idx = idx;
             matchedHeaderCount++;
           } else if (col.includes('barcode gl') || col.includes('barcode 2') || col.includes('kode 2') || col.includes('ean')) {
             barcode2Idx = idx;
             matchedHeaderCount++;
           } else if (col.includes('foto') || col.includes('link') || col.includes('gambar') || col.includes('image')) {
-            photoUrlIdx = idx;
+            if (photoUrlIdx === -1) photoUrlIdx = idx;
             matchedHeaderCount++;
           } else if (col.includes('nama') || col.includes('product') || col.includes('item') || col.includes('barang')) {
-            nameIdx = idx;
+            if (nameIdx === -1) nameIdx = idx;
             matchedHeaderCount++;
-          } else if (col.includes('harga') || col.includes('price')) {
+          } else if (col.includes('harga pg') || col === 'harga' || (col.includes('harga') && priceIdx === -1)) {
             priceIdx = idx;
             matchedHeaderCount++;
           } else if (col.includes('kategori') || col.includes('category') || col.includes('tipe')) {
@@ -244,6 +244,13 @@ async function startServer() {
         }
       }
 
+      // Default fallback indices if missing
+      if (barcode1Idx === -1) barcode1Idx = 0;
+      if (barcode2Idx === -1) barcode2Idx = 1;
+      if (photoUrlIdx === -1) photoUrlIdx = 2;
+      if (nameIdx === -1) nameIdx = 3;
+      if (priceIdx === -1) priceIdx = 4;
+
       const products: CSVProductRow[] = [];
       for (let i = startIdx; i < rawRows.length; i++) {
         const row = rawRows[i];
@@ -255,9 +262,26 @@ async function startServer() {
         const name = (row[nameIdx] || '').trim();
         
         const priceStr = priceIdx >= 0 && row[priceIdx] ? (row[priceIdx] || '').replace(/[^0-9]/g, '') : '';
-        const parsedPrice = priceStr ? parseInt(priceStr, 10) : 0;
+        let parsedPrice = priceStr ? parseInt(priceStr, 10) : 0;
+        if (parsedPrice > 0 && parsedPrice < 1000) {
+          parsedPrice = parsedPrice * 1000;
+        }
 
-        const category = categoryIdx >= 0 && row[categoryIdx] ? (row[categoryIdx] || '').trim() : '';
+        let category = categoryIdx >= 0 && row[categoryIdx] ? (row[categoryIdx] || '').trim() : '';
+        if (!category && name) {
+          const lowerName = name.toLowerCase();
+          if (lowerName.includes('pb') || lowerName.includes('powerbank') || lowerName.includes('power bank') || lowerName.includes('power depot') || lowerName.includes('powertiny') || lowerName.includes('sleekvolt') || lowerName.includes('magipi') || lowerName.includes('powermag') || lowerName.includes('glamvolt') || lowerName.includes('mini pix') || lowerName.includes('sunny power') || lowerName.includes('bolt') || lowerName.includes('mah')) {
+            category = 'Powerbank';
+          } else if (lowerName.includes('cable') || lowerName.includes('kabel') || lowerName.includes('type-c') || lowerName.includes('lightning') || lowerName.includes('braided') || lowerName.includes('magloop') || lowerName.includes('ice link')) {
+            category = 'Kabel Data';
+          } else if (lowerName.includes('earphone') || lowerName.includes('earbuds') || lowerName.includes('headphone') || lowerName.includes('headset') || lowerName.includes('audio') || lowerName.includes('stereo')) {
+            category = 'Earphone';
+          } else if (lowerName.includes('charger') || lowerName.includes('gan') || lowerName.includes('adapter') || lowerName.includes('wall charger')) {
+            category = 'Charger';
+          } else {
+            category = 'Aksesori';
+          }
+        }
 
         // Skip completely empty rows
         if (!barcode1 && !barcode2 && !name) continue;
