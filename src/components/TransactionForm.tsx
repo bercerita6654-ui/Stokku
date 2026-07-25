@@ -21,6 +21,7 @@ import { Product, TransactionType, TransactionItem } from '../types';
 import { findProductByBarcode, recordTransaction, getStoredOperator, saveStoredOperator, formatPhotoUrl } from '../lib/storage';
 import { User as FirebaseUser } from '../lib/firebase';
 import { TransactionSuccessModal, SavedTransactionDetails } from './TransactionSuccessModal';
+import { TransactionConfirmModal } from './TransactionConfirmModal';
 
 interface TransactionFormProps {
   products: Product[];
@@ -56,6 +57,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   );
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [successModalData, setSuccessModalData] = useState<SavedTransactionDetails | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
@@ -214,7 +216,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   // Totals
   const totalQuantity = cartItems.reduce((acc, i) => acc + i.quantity, 0);
 
-  // Submit Transaction
+  // Submit Transaction Trigger (opens confirmation modal)
   const handleSubmitTransaction = () => {
     if (cartItems.length === 0) {
       setFeedbackMessage({
@@ -223,6 +225,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       });
       return;
     }
+    setShowConfirmModal(true);
+  };
+
+  // Confirm and Execute Transaction Save
+  const handleConfirmSendTransaction = () => {
+    setShowConfirmModal(false);
 
     const savedTrxInfo: SavedTransactionDetails = {
       type: trxType,
@@ -248,7 +256,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     setNote('');
     setFeedbackMessage({
       type: 'success',
-      text: `Berhasil menyimpan transaksi produk ${trxType === 'MASUK' ? 'MASUK' : 'TERJUAL'}!`
+      text: `Berhasil mengirim & menyimpan transaksi produk ${trxType === 'MASUK' ? 'MASUK' : 'TERJUAL'}!`
     });
     setSuccessModalData(savedTrxInfo);
 
@@ -654,6 +662,19 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
           barcodeInputRef.current?.focus();
         }}
         onNavigateToHistory={onNavigateToHistory}
+      />
+
+      {/* Confirmation Modal Popup */}
+      <TransactionConfirmModal
+        isOpen={showConfirmModal}
+        trxType={trxType}
+        activeOutlet={activeOutlet}
+        cartItems={cartItems}
+        totalQuantity={totalQuantity}
+        operator={operator}
+        note={note}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirmSend={handleConfirmSendTransaction}
       />
     </div>
   );

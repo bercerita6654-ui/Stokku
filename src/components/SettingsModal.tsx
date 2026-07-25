@@ -400,16 +400,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     // 2. Hapus Transaksi Otomatis jika action === 'DELETE_TRANSACTION'
     if (action === 'DELETE_TRANSACTION') {
-      var targetSheetNames = ['Update Stok', 'update stok', 'UPDATE STOK', 'Transaksi', 'transaksi', 'Log Stok', 'Riwayat Stok', 'History Stok'];
+      var outlet = data.outlet || '';
       var sheetsToSearch = [];
-      
-      for (var s = 0; s < targetSheetNames.length; s++) {
-        var sh = ss.getSheetByName(targetSheetNames[s]);
-        if (sh && sheetsToSearch.indexOf(sh) === -1) {
-          sheetsToSearch.push(sh);
-        }
+      if (outlet) {
+        var outletSh = ss.getSheetByName(outlet);
+        if (outletSh) sheetsToSearch.push(outletSh);
       }
-      
       if (sheetsToSearch.length === 0) {
         sheetsToSearch = ss.getSheets();
       }
@@ -434,8 +430,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       return ContentService.createTextOutput(JSON.stringify({ success: true, action: 'DELETE_TRANSACTION', deletedRows: deletedRowsCount })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // 3. Tambah atau Update Transaksi (ADD_TRANSACTION / UPDATE_TRANSACTION)
-    var sheet = ss.getSheetByName('Update Stok') || ss.getSheetByName('update stok') || ss.getSheetByName('UPDATE STOK') || ss.getSheetByName('Transaksi') || ss.insertSheet('Update Stok');
+    // 3. Tambah atau Update Transaksi (ADD_TRANSACTION / UPDATE_TRANSACTION) per Sheet Toko (Outlet) Masing-Masing
+    var outlet = data.outlet || 'Planet gadget 3';
+    var sheet = ss.getSheetByName(outlet) || ss.insertSheet(outlet);
+    
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(['Waktu', 'ID Transaksi', 'Outlet', 'Tipe', 'Nama Produk', 'Barcode', 'Jumlah (Qty)', 'Harga Satuan', 'Subtotal', 'Operator', 'Catatan']);
       sheet.getRange(1, 1, 1, 11).setFontWeight('bold').setBackground('#f3f4f6');
@@ -449,12 +447,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }
     }
     var type = data.type || 'MASUK';
-    var outlet = data.outlet || 'Planet gadget 3';
     var operator = data.operator || 'Admin';
     var note = data.note || '';
     var transactionId = data.id || '';
 
-    // Jika ada ID Transaksi, hapus baris lama terlebih dahulu agar edit/update tidak membuat baris duplikat atau bergeser
+    // Jika ada ID Transaksi, hapus baris lama terlebih dahulu agar edit/update tidak membuat baris duplikat atau bergeser di sheet outlet tersebut
     if (transactionId) {
       var lastRow = sheet.getLastRow();
       var lastCol = sheet.getLastColumn();
@@ -487,7 +484,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       });
     }
     
-    return ContentService.createTextOutput(JSON.stringify({ success: true, action: action }))
+    return ContentService.createTextOutput(JSON.stringify({ success: true, action: action, sheetName: outlet }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))

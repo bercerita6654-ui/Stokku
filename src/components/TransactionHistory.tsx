@@ -44,7 +44,19 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [deletingTx, setDeletingTx] = useState<Transaction | null>(null);
 
+  const isMoreThan24Hours = (createdAt: string) => {
+    if (!createdAt) return false;
+    const txTime = new Date(createdAt).getTime();
+    const now = Date.now();
+    const diffHours = (now - txTime) / (1000 * 60 * 60);
+    return diffHours > 24;
+  };
+
   const handleDeleteTx = (tx: Transaction) => {
+    if (isMoreThan24Hours(tx.createdAt)) {
+      alert('Maaf, transaksi ini sudah lewat dari 24 jam dan tidak dapat dihapus kembali.');
+      return;
+    }
     setDeletingTx(tx);
   };
 
@@ -57,6 +69,10 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
 
   const handleSaveEditTx = () => {
     if (!editingTx) return;
+    if (isMoreThan24Hours(editingTx.createdAt)) {
+      alert('Maaf, transaksi ini sudah lewat dari 24 jam dan tidak dapat diedit/disimpan.');
+      return;
+    }
     updateTransaction(editingTx);
     setEditingTx(null);
     if (onRefreshData) onRefreshData();
@@ -372,30 +388,42 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                     </span>
 
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingTx({
-                            ...tx,
-                            createdAt: tx.createdAt || new Date().toISOString(),
-                            items: tx.items.map((i) => ({ ...i }))
-                          });
-                        }}
-                        className="p-1.5 text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg transition"
-                        title="Edit Transaksi"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteTx(tx);
-                        }}
-                        className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                        title="Hapus Transaksi"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {isMoreThan24Hours(tx.createdAt) ? (
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/80 flex items-center gap-1" title="Sudah lewat dari 24 jam (Terkunci)">
+                          🔒 Lewat 24 Jam
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isMoreThan24Hours(tx.createdAt)) {
+                                alert('Maaf, transaksi ini sudah lewat dari 24 jam dan tidak dapat diedit.');
+                                return;
+                              }
+                              setEditingTx({
+                                ...tx,
+                                createdAt: tx.createdAt || new Date().toISOString(),
+                                items: tx.items.map((i) => ({ ...i }))
+                              });
+                            }}
+                            className="p-1.5 text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg transition"
+                            title="Edit Transaksi"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteTx(tx);
+                            }}
+                            className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                            title="Hapus Transaksi"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
 
                     <button className="text-zinc-400 hover:text-zinc-600 p-1 ml-1">
@@ -510,6 +538,31 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                     <span>BARANG TERJUAL</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Date & Time Editor */}
+              <div>
+                <label className="block text-zinc-600 font-medium mb-1">Tanggal & Waktu Transaksi</label>
+                <input
+                  type="datetime-local"
+                  value={(() => {
+                    const iso = editingTx.createdAt;
+                    if (!iso) return new Date().toISOString().slice(0, 16);
+                    const d = new Date(iso);
+                    if (isNaN(d.getTime()) || d.getFullYear() < 2000) {
+                      return new Date().toISOString().slice(0, 16);
+                    }
+                    const pad = (n: number) => n.toString().padStart(2, '0');
+                    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                  })()}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) {
+                      setEditingTx({ ...editingTx, createdAt: new Date(val).toISOString() });
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-zinc-800"
+                />
               </div>
 
               {/* Operator & Note */}
