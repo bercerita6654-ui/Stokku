@@ -12,7 +12,9 @@ import {
   ChevronRight,
   Sparkles,
   Barcode,
-  Trash2
+  Trash2,
+  Printer,
+  Store
 } from 'lucide-react';
 import { Product, Transaction } from '../types';
 import { formatDateIndonesian, formatRupiah } from '../lib/storage';
@@ -21,21 +23,25 @@ import { DashboardCharts } from './DashboardCharts';
 interface DashboardOverviewProps {
   products: Product[];
   transactions: Transaction[];
+  activeOutlet?: string;
   onNavigate: (tab: 'dashboard' | 'catalog' | 'transaction' | 'history' | 'settings', options?: { type?: 'MASUK' | 'TERJUAL' }) => void;
   onOpenScanner: () => void;
   onSyncNow: () => void;
   isSyncing: boolean;
   onClearTransactions?: () => void;
+  onOpenPdfModal?: () => void;
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   products,
   transactions,
+  activeOutlet = 'Planet gadget 3',
   onNavigate,
   onOpenScanner,
   onSyncNow,
   isSyncing,
-  onClearTransactions
+  onClearTransactions,
+  onOpenPdfModal
 }) => {
   // Compute metrics
   const totalProducts = products.length;
@@ -66,9 +72,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       <div className="bg-zinc-900 text-white rounded-2xl p-6 shadow-xs border border-zinc-800 relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-800 text-zinc-200 border border-zinc-700">
                 Sistem Pendataan Terpadu
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-500/20 text-orange-300 border border-orange-500/30 flex items-center gap-1 shadow-2xs">
+                <Store className="w-3.5 h-3.5 text-orange-400" />
+                Outlet: {activeOutlet}
               </span>
             </div>
             <h2 className="text-2xl font-bold tracking-tight text-white">
@@ -103,6 +113,16 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <Scan className="w-4 h-4 text-zinc-300" />
               <span>Scan Kamera</span>
             </button>
+
+            {onOpenPdfModal && (
+              <button
+                onClick={onOpenPdfModal}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-700 hover:bg-rose-600 text-white font-semibold text-xs shadow-xs transition active:scale-95"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Unduh Laporan PDF</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

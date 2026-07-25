@@ -11,9 +11,12 @@ import {
   Settings,
   LogOut,
   User as UserIcon,
-  Sparkles
+  Sparkles,
+  Store,
+  ChevronDown,
+  Check
 } from 'lucide-react';
-import { SyncStatus } from '../types';
+import { SyncStatus, OUTLETS } from '../types';
 import { User } from '../lib/firebase';
 
 interface HeaderProps {
@@ -25,6 +28,8 @@ interface HeaderProps {
   onLoginGoogle: () => void;
   onLogoutGoogle: () => void;
   isAuthenticating?: boolean;
+  activeOutlet: string;
+  onOutletChange: (outlet: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -35,9 +40,12 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   onLoginGoogle,
   onLogoutGoogle,
-  isAuthenticating = false
+  isAuthenticating = false,
+  activeOutlet,
+  onOutletChange
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showOutletMenu, setShowOutletMenu] = useState(false);
 
   return (
     <header className="bg-white border-b border-zinc-200/80 text-zinc-900 sticky top-0 z-30 shadow-2xs">
@@ -64,9 +72,63 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Sync Status, Google Login & Action */}
+          {/* Outlet Switcher, Sync Status, Google Login & Action */}
           <div className="flex items-center space-x-2 sm:space-x-3">
-            <div className="hidden md:flex items-center px-3 py-1.5 rounded-xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-700 gap-2">
+            {/* Outlet Switcher Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowOutletMenu(!showOutletMenu)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100/80 border border-orange-200/80 text-orange-950 text-xs font-semibold shadow-2xs transition active:scale-95"
+                title="Pilih / Ubah Outlet Aktif"
+              >
+                <Store className="w-4 h-4 text-orange-600 shrink-0" />
+                <span className="max-w-[120px] sm:max-w-[170px] truncate text-orange-900 font-bold">
+                  {activeOutlet}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+              </button>
+
+              {showOutletMenu && (
+                <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-zinc-200/90 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="px-3.5 py-2 border-b border-zinc-100 flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                      Pilih Outlet / Cabang
+                    </span>
+                    <span className="text-[10px] bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full font-bold">
+                      {OUTLETS.length} Outlet
+                    </span>
+                  </div>
+
+                  <div className="max-h-60 overflow-y-auto py-1">
+                    {OUTLETS.map((outletName) => {
+                      const isActive = activeOutlet === outletName;
+                      return (
+                        <button
+                          key={outletName}
+                          onClick={() => {
+                            onOutletChange(outletName);
+                            setShowOutletMenu(false);
+                          }}
+                          className={`w-full text-left px-3.5 py-2 text-xs font-medium flex items-center justify-between transition ${
+                            isActive
+                              ? 'bg-orange-50 text-orange-800 font-bold'
+                              : 'text-zinc-700 hover:bg-zinc-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate pr-2">
+                            <Store className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-orange-600' : 'text-zinc-400'}`} />
+                            <span className="truncate">{outletName}</span>
+                          </div>
+                          {isActive && <Check className="w-4 h-4 text-orange-600 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="hidden lg:flex items-center px-3 py-1.5 rounded-xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-700 gap-2">
               {syncStatus.status === 'syncing' ? (
                 <>
                   <RotateCw className="w-3.5 h-3.5 text-zinc-900 animate-spin" />

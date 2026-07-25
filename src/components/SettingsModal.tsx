@@ -437,12 +437,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     // 3. Tambah Transaksi Baru (Default)
     var sheet = ss.getSheetByName('Update Stok') || ss.getSheetByName('update stok') || ss.getSheetByName('UPDATE STOK') || ss.getSheetByName('Transaksi') || ss.insertSheet('Update Stok');
     if (sheet.getLastRow() === 0) {
-      sheet.appendRow(['Waktu', 'ID Transaksi', 'Tipe', 'Nama Produk', 'Barcode', 'Jumlah (Qty)', 'Harga Satuan', 'Subtotal', 'Operator', 'Catatan']);
-      sheet.getRange(1, 1, 1, 10).setFontWeight('bold').setBackground('#f3f4f6');
+      sheet.appendRow(['Waktu', 'ID Transaksi', 'Outlet', 'Tipe', 'Nama Produk', 'Barcode', 'Jumlah (Qty)', 'Harga Satuan', 'Subtotal', 'Operator', 'Catatan']);
+      sheet.getRange(1, 1, 1, 11).setFontWeight('bold').setBackground('#f3f4f6');
     }
     
     var timestamp = new Date();
     var type = data.type || 'MASUK';
+    var outlet = data.outlet || 'Planet gadget 3';
     var operator = data.operator || 'Admin';
     var note = data.note || '';
     
@@ -451,6 +452,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         sheet.appendRow([
           timestamp,
           data.id,
+          outlet,
           type,
           item.productName || '',
           item.barcode || '',

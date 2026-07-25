@@ -15,7 +15,9 @@ import {
   X,
   Grid,
   List,
-  ExternalLink
+  ExternalLink,
+  Printer,
+  Store
 } from 'lucide-react';
 import { Product, FilterOptions } from '../types';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
@@ -25,16 +27,20 @@ import { formatRupiah, saveProducts, formatPhotoUrl, deleteProduct } from '../li
 
 interface ProductCatalogProps {
   products: Product[];
+  activeOutlet?: string;
   onProductsUpdated: (products: Product[]) => void;
   onFastTransaction: (product: Product, type: 'MASUK' | 'TERJUAL') => void;
   onOpenScanner: () => void;
+  onOpenPdfModal?: () => void;
 }
 
 export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   products,
+  activeOutlet = 'Planet gadget 3',
   onProductsUpdated,
   onFastTransaction,
-  onOpenScanner
+  onOpenScanner,
+  onOpenPdfModal
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -168,13 +174,29 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
       <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-2xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold text-zinc-800">Katalog & Stok Produk</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-zinc-800">Katalog & Stok Produk</h2>
+              <span className="bg-orange-100 text-orange-900 border border-orange-200/90 text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                <Store className="w-3.5 h-3.5 text-orange-600" />
+                {activeOutlet}
+              </span>
+            </div>
             <p className="text-xs text-zinc-500">
               Total {products.length} item terdaftar ({filteredProducts.length} ditampilkan)
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {onOpenPdfModal && (
+              <button
+                onClick={onOpenPdfModal}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition shadow-xs"
+              >
+                <Printer className="w-4 h-4 text-white" />
+                <span>Laporan PDF</span>
+              </button>
+            )}
+
             <button
               onClick={() => setIsNewProductModal(true)}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-xs transition shadow-xs"

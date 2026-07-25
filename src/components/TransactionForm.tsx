@@ -14,7 +14,8 @@ import {
   User, 
   Sparkles,
   AlertCircle,
-  X
+  X,
+  Store
 } from 'lucide-react';
 import { Product, TransactionType, TransactionItem } from '../types';
 import { findProductByBarcode, recordTransaction, getStoredOperator, saveStoredOperator, formatPhotoUrl } from '../lib/storage';
@@ -23,6 +24,7 @@ import { TransactionSuccessModal, SavedTransactionDetails } from './TransactionS
 
 interface TransactionFormProps {
   products: Product[];
+  activeOutlet?: string;
   initialType?: TransactionType;
   initialProduct?: Product | null;
   onTransactionSaved: () => void;
@@ -35,6 +37,7 @@ interface TransactionFormProps {
 
 export const TransactionForm: React.FC<TransactionFormProps> = ({
   products,
+  activeOutlet = 'Planet gadget 3',
   initialType = 'MASUK',
   initialProduct,
   onTransactionSaved,
@@ -232,6 +235,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 
     recordTransaction({
       type: trxType,
+      outlet: activeOutlet,
       items: cartItems,
       totalItems: cartItems.length,
       totalQuantity: totalQuantity,
@@ -286,13 +290,17 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         {/* Header Title */}
         <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className={`w-3 h-3 rounded-full ${trxType === 'MASUK' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
               <h2 className="text-lg font-bold text-zinc-800">
                 Catat Transaksi: <span className={trxType === 'MASUK' ? 'text-emerald-600' : 'text-rose-600'}>
                   {trxType === 'MASUK' ? 'Barang Masuk / Restock' : 'Barang Terjual'}
                 </span>
               </h2>
+              <span className="bg-orange-100 text-orange-900 border border-orange-200/90 text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                <Store className="w-3.5 h-3.5 text-orange-600" />
+                {activeOutlet}
+              </span>
             </div>
             <p className="text-xs text-zinc-500 mt-0.5">
               Scan barcode dengan scanner USB/Kamera atau cari nama produk di bawah.
