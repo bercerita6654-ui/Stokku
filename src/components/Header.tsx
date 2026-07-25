@@ -53,8 +53,9 @@ export const Header: React.FC<HeaderProps> = ({
                 <h1 className="font-bold text-lg tracking-tight text-zinc-900">
                   StokKu
                 </h1>
-                <span className="text-[10px] font-semibold tracking-wide uppercase px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-700 border border-zinc-200/80">
-                  Spreadsheet Sync
+                <span className="text-[10px] font-bold tracking-wide px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Multi-Device Cloud Sync
                 </span>
               </div>
               <p className="text-xs text-zinc-500">
