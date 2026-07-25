@@ -413,6 +413,12 @@ async function startServer() {
   app.post('/api/sync-transaction', async (req, res) => {
     try {
       const { appsScriptUrl, payload } = req.body || {};
+      const outletName = payload?.outlet || 'Planet gadget 3';
+      console.log(`[Server Sync Validation] Google Sheet Sync Proxy - Outlet: "${outletName}"`, {
+        keys: Object.keys(payload || {}),
+        action: payload?.action || payload?.type || 'SYNC'
+      });
+
       if (!appsScriptUrl) {
         return res.status(400).json({ success: false, error: 'Apps Script URL required' });
       }
