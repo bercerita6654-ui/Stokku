@@ -271,10 +271,29 @@ export function saveAppsScriptUrl(url: string): void {
 }
 
 /**
- * Automatically sends transaction data to Google Apps Script Web App
+ * Automatically sends transaction or product data to Google Apps Script Web App with outlet column structure validation logs
  */
 export async function sendPayloadToGoogleSheet(payload: any): Promise<{ success: boolean; message?: string }> {
   const appsScriptUrl = getStoredAppsScriptUrl();
+  const outletName = payload?.outlet || 'Planet gadget 3';
+  
+  console.group(`[Sync Validation] Google Sheet Sync - Outlet: ${outletName}`);
+  console.log('• Timestamp:', new Date().toISOString());
+  console.log('• Payload structure check:', Object.keys(payload || {}));
+  console.log('• Action type:', payload?.action || payload?.type || 'STANDARD_SYNC');
+  
+  // Validate required column structures for Google Spreadsheet integration per outlet
+  const expectedColumns = ['id', 'outlet', 'type', 'items', 'createdAt', 'totalQuantity', 'totalItems'];
+  const payloadKeys = Object.keys(payload || {});
+  const missingCols = expectedColumns.filter(col => !payloadKeys.includes(col) && col !== 'outlet');
+  
+  if (missingCols.length > 0 && !payload?.action) {
+    console.warn(`[Sync Validation Warning] Outlet "${outletName}" payload missing standard columns:`, missingCols);
+  } else {
+    console.log(`[Sync Validation Success] Kolom data untuk outlet "${outletName}" sesuai dengan struktur spreadsheet.`);
+  }
+  console.groupEnd();
+
   if (!appsScriptUrl) {
     return { success: false, message: 'URL Web App Apps Script belum diatur' };
   }
