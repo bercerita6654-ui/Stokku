@@ -52,16 +52,22 @@ export const logoutFirebase = async () => {
 export { onAuthStateChanged };
 export type { User };
 
-// Firestore collection names
-const PRODUCTS_COLLECTION = 'products';
-const TRANSACTIONS_COLLECTION = 'transactions';
+// Firestore collection helper for multi-outlet isolation
+function getOutletCollectionName(base: 'products' | 'transactions', outlet: string = 'Planet gadget 3'): string {
+  if (!outlet || outlet === 'Planet gadget 3') {
+    return base;
+  }
+  const slug = outlet.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  return `${base}_${slug}`;
+}
 
 /**
  * Save products batch to Firestore cloud database
  */
-export async function syncProductsToCloud(products: Product[]): Promise<void> {
+export async function syncProductsToCloud(products: Product[], outlet: string = 'Planet gadget 3'): Promise<void> {
   if (!products || products.length === 0) return;
   try {
+    const colName = getOutletCollectionName('products', outlet);
     // Firestore batch limit is 500 writes
     const CHUNK_SIZE = 450;
     for (let i = 0; i < products.length; i += CHUNK_SIZE) {
@@ -69,8 +75,8 @@ export async function syncProductsToCloud(products: Product[]): Promise<void> {
       const batch = writeBatch(db);
       chunk.forEach((product) => {
         if (!product.id) return;
-        const ref = doc(db, PRODUCTS_COLLECTION, product.id);
-        batch.set(ref, product, { merge: true });
+        const ref = doc(db, colName, product.id);
+        batch.set(ref, { ...product, outlet: outlet || 'Planet gadget 3' }, { merge: true });
       });
       await batch.commit();
     }
@@ -82,9 +88,10 @@ export async function syncProductsToCloud(products: Product[]): Promise<void> {
 /**
  * Delete single product from Firestore cloud database
  */
-export async function deleteProductFromCloud(productId: string): Promise<void> {
+export async function deleteProductFromCloud(productId: string, outlet: string = 'Planet gadget 3'): Promise<void> {
   try {
-    const ref = doc(db, PRODUCTS_COLLECTION, productId);
+    const colName = getOutletCollectionName('products', outlet);
+    const ref = doc(db, colName, productId);
     await deleteDoc(ref);
   } catch (err) {
     console.warn('Firestore deleteProductFromCloud error:', err);
@@ -94,17 +101,18 @@ export async function deleteProductFromCloud(productId: string): Promise<void> {
 /**
  * Save transactions batch to Firestore cloud database
  */
-export async function syncTransactionsToCloud(transactions: Transaction[]): Promise<void> {
+export async function syncTransactionsToCloud(transactions: Transaction[], outlet: string = 'Planet gadget 3'): Promise<void> {
   if (!transactions || transactions.length === 0) return;
   try {
+    const colName = getOutletCollectionName('transactions', outlet);
     const CHUNK_SIZE = 450;
     for (let i = 0; i < transactions.length; i += CHUNK_SIZE) {
       const chunk = transactions.slice(i, i + CHUNK_SIZE);
       const batch = writeBatch(db);
       chunk.forEach((tx) => {
         if (!tx.id) return;
-        const ref = doc(db, TRANSACTIONS_COLLECTION, tx.id);
-        batch.set(ref, tx, { merge: true });
+        const ref = doc(db, colName, tx.id);
+        batch.set(ref, { ...tx, outlet: outlet || 'Planet gadget 3' }, { merge: true });
       });
       await batch.commit();
     }
@@ -116,10 +124,11 @@ export async function syncTransactionsToCloud(transactions: Transaction[]): Prom
 /**
  * Save single transaction to Firestore cloud database
  */
-export async function saveSingleTransactionToCloud(tx: Transaction): Promise<void> {
+export async function saveSingleTransactionToCloud(tx: Transaction, outlet: string = 'Planet gadget 3'): Promise<void> {
   try {
-    const ref = doc(db, TRANSACTIONS_COLLECTION, tx.id);
-    await setDoc(ref, tx, { merge: true });
+    const colName = getOutletCollectionName('transactions', outlet);
+    const ref = doc(db, colName, tx.id);
+    await setDoc(ref, { ...tx, outlet: outlet || 'Planet gadget 3' }, { merge: true });
   } catch (err) {
     console.warn('Firestore saveSingleTransactionToCloud error:', err);
   }
@@ -128,9 +137,10 @@ export async function saveSingleTransactionToCloud(tx: Transaction): Promise<voi
 /**
  * Delete single transaction from Firestore cloud database
  */
-export async function deleteTransactionFromCloud(txId: string): Promise<void> {
+export async function deleteTransactionFromCloud(txId: string, outlet: string = 'Planet gadget 3'): Promise<void> {
   try {
-    const ref = doc(db, TRANSACTIONS_COLLECTION, txId);
+    const colName = getOutletCollectionName('transactions', outlet);
+    const ref = doc(db, colName, txId);
     await deleteDoc(ref);
   } catch (err) {
     console.warn('Firestore deleteTransactionFromCloud error:', err);
@@ -138,10 +148,14 @@ export async function deleteTransactionFromCloud(txId: string): Promise<void> {
 }
 
 /**
- * Subscribe to real-time Cloud Products updates across devices
+ * Subscribe to real-time Cloud Products updates across devices for specified outlet
  */
-export function subscribeToCloudProducts(onUpdate: (products: Product[]) => void) {
-  const q = query(collection(db, PRODUCTS_COLLECTION));
+export function subscribeToCloudProducts(
+  onUpdate: (products: Product[]) => void,
+  outlet: string = 'Planet gadget 3'
+) {
+  const colName = getOutletCollectionName('products', outlet);
+  const q = query(collection(db, colName));
   return onSnapshot(
     q,
     (snapshot) => {
@@ -160,10 +174,14 @@ export function subscribeToCloudProducts(onUpdate: (products: Product[]) => void
 }
 
 /**
- * Subscribe to real-time Cloud Transactions updates across devices
+ * Subscribe to real-time Cloud Transactions updates across devices for specified outlet
  */
-export function subscribeToCloudTransactions(onUpdate: (transactions: Transaction[]) => void) {
-  const q = query(collection(db, TRANSACTIONS_COLLECTION));
+export function subscribeToCloudTransactions(
+  onUpdate: (transactions: Transaction[]) => void,
+  outlet: string = 'Planet gadget 3'
+) {
+  const colName = getOutletCollectionName('transactions', outlet);
+  const q = query(collection(db, colName));
   return onSnapshot(
     q,
     (snapshot) => {

@@ -319,35 +319,85 @@ export async function sendTransactionToGoogleSheet(transaction: Transaction): Pr
   return sendPayloadToGoogleSheet(transaction);
 }
 
-export function getStoredProducts(): Product[] {
+const ACTIVE_OUTLET_KEY = 'stokku_active_outlet_v1';
+export const DEFAULT_OUTLET = 'Planet gadget 3';
+
+export function getActiveOutlet(): string {
+  if (typeof window === 'undefined') return DEFAULT_OUTLET;
+  return localStorage.getItem(ACTIVE_OUTLET_KEY) || DEFAULT_OUTLET;
+}
+
+export function saveActiveOutlet(outlet: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(ACTIVE_OUTLET_KEY, outlet);
+}
+
+export function getOutletStorageKey(outlet: string, prefix: 'products' | 'transactions'): string {
+  if (outlet === 'Planet gadget 3') {
+    return prefix === 'products' ? STORAGE_KEYS.PRODUCTS : STORAGE_KEYS.TRANSACTIONS;
+  }
+  const slug = outlet.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  return `stokku_${prefix}_v1_${slug}`;
+}
+
+export function getStoredProducts(outlet?: string): Product[] {
   if (typeof window === 'undefined') return [];
+  const activeOutlet = outlet || getActiveOutlet();
+  const key = getOutletStorageKey(activeOutlet, 'products');
+
   try {
-    const data = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-    if (!data) return [];
-    const parsed: Product[] = JSON.parse(data);
-    return parsed.map((p) => ({
-      ...p,
-      photoUrl: formatPhotoUrl(p.photoUrl)
-    }));
+    const data = localStorage.getItem(key);
+    if (data) {
+      const parsed: Product[] = JSON.parse(data);
+      return parsed.map((p) => ({
+        ...p,
+        photoUrl: formatPhotoUrl(p.photoUrl),
+        outlet: activeOutlet
+      }));
+    }
+
+    // If non-default outlet has no data yet, populate master catalog from Planet gadget 3 with reset stocks
+    if (activeOutlet !== 'Planet gadget 3') {
+      const masterData = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
+      if (masterData) {
+        const masterProducts: Product[] = JSON.parse(masterData);
+        const initialized: Product[] = masterProducts.map((p) => ({
+          ...p,
+          stock: 0,
+          totalIncoming: 0,
+          totalOutgoing: 0,
+          outlet: activeOutlet,
+          updatedAt: new Date().toISOString()
+        }));
+        localStorage.setItem(key, JSON.stringify(initialized));
+        syncProductsToCloud(initialized, activeOutlet);
+        return initialized;
+      }
+    }
+    return [];
   } catch (e) {
     console.error('Error reading products from localStorage:', e);
     return [];
   }
 }
 
-export function saveProducts(products: Product[]): void {
+export function saveProducts(products: Product[], outlet?: string): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
-    syncProductsToCloud(products);
+    const activeOutlet = outlet || getActiveOutlet();
+    const key = getOutletStorageKey(activeOutlet, 'products');
+    localStorage.setItem(key, JSON.stringify(products));
+    syncProductsToCloud(products, activeOutlet);
   } catch (e) {
     console.error('Error saving products to localStorage:', e);
   }
 }
 
-export function getStoredTransactions(): Transaction[] {
+export function getStoredTransactions(outlet?: string): Transaction[] {
   if (typeof window === 'undefined') return [];
   try {
-    const data = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+    const activeOutlet = outlet || getActiveOutlet();
+    const key = getOutletStorageKey(activeOutlet, 'transactions');
+    const data = localStorage.getItem(key);
     return data ? JSON.parse(data) : [];
   } catch (e) {
     console.error('Error reading transactions from localStorage:', e);
@@ -355,10 +405,12 @@ export function getStoredTransactions(): Transaction[] {
   }
 }
 
-export function saveTransactions(transactions: Transaction[]): void {
+export function saveTransactions(transactions: Transaction[], outlet?: string): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
-    syncTransactionsToCloud(transactions);
+    const activeOutlet = outlet || getActiveOutlet();
+    const key = getOutletStorageKey(activeOutlet, 'transactions');
+    localStorage.setItem(key, JSON.stringify(transactions));
+    syncTransactionsToCloud(transactions, activeOutlet);
   } catch (e) {
     console.error('Error saving transactions to localStorage:', e);
   }
@@ -431,19 +483,23 @@ export function formatPhotoUrl(url: string): string {
  * Merge raw products fetched from Spreadsheet with existing stored products.
  * Keeps existing stock counts, prices, and categories if available.
  */
-export function mergeSpreadsheetProducts(fetchedRows: Array<{
-  id: string;
-  barcode1: string;
-  barcode2: string;
-  photoUrl: string;
-  name: string;
-  price?: number;
-  category?: string;
-  stock?: number;
-  totalIncoming?: number;
-  totalOutgoing?: number;
-}>): Product[] {
-  const existingProducts = getStoredProducts();
+export function mergeSpreadsheetProducts(
+  fetchedRows: Array<{
+    id: string;
+    barcode1: string;
+    barcode2: string;
+    photoUrl: string;
+    name: string;
+    price?: number;
+    category?: string;
+    stock?: number;
+    totalIncoming?: number;
+    totalOutgoing?: number;
+  }>,
+  outlet?: string
+): Product[] {
+  const activeOutlet = outlet || getActiveOutlet();
+  const existingProducts = getStoredProducts(activeOutlet);
   const existingByBarcodeMap = new Map<string, Product>();
 
   existingProducts.forEach((p) => {
@@ -513,10 +569,11 @@ export function mergeSpreadsheetProducts(fetchedRows: Array<{
 }
 
 /**
- * Executes a transaction (MASUK or TERJUAL) and updates product stock in storage.
+ * Executes a transaction (MASUK or TERJUAL) and updates product stock in storage for active outlet.
  */
 export function recordTransaction(transactionData: Omit<Transaction, 'id' | 'createdAt'>): Transaction {
-  const currentProducts = getStoredProducts();
+  const activeOutlet = transactionData.outlet || getActiveOutlet();
+  const currentProducts = getStoredProducts(activeOutlet);
   const productMap = new Map(currentProducts.map((p) => [p.id, { ...p }]));
 
   transactionData.items.forEach((item) => {
@@ -532,17 +589,18 @@ export function recordTransaction(transactionData: Omit<Transaction, 'id' | 'cre
   });
 
   const updatedProductsList = Array.from(productMap.values());
-  saveProducts(updatedProductsList);
+  saveProducts(updatedProductsList, activeOutlet);
 
   const newTransaction: Transaction = {
     ...transactionData,
+    outlet: activeOutlet,
     id: `trx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     createdAt: new Date().toISOString()
   };
 
-  const currentTransactions = getStoredTransactions();
+  const currentTransactions = getStoredTransactions(activeOutlet);
   const updatedTransactions = [newTransaction, ...currentTransactions];
-  saveTransactions(updatedTransactions);
+  saveTransactions(updatedTransactions, activeOutlet);
 
   // Automatically push transaction to Google Apps Script Web App if configured
   sendTransactionToGoogleSheet(newTransaction);
@@ -551,14 +609,15 @@ export function recordTransaction(transactionData: Omit<Transaction, 'id' | 'cre
 }
 
 /**
- * Deletes a transaction and reverts its impact on product stock.
+ * Deletes a transaction and reverts its impact on product stock for active outlet.
  */
-export function deleteTransaction(transactionId: string): void {
-  const currentTransactions = getStoredTransactions();
+export function deleteTransaction(transactionId: string, outlet?: string): void {
+  const activeOutlet = outlet || getActiveOutlet();
+  const currentTransactions = getStoredTransactions(activeOutlet);
   const txToDelete = currentTransactions.find((t) => t.id === transactionId);
   if (!txToDelete) return;
 
-  const currentProducts = getStoredProducts();
+  const currentProducts = getStoredProducts(activeOutlet);
   const productMap = new Map(currentProducts.map((p) => [p.id, { ...p }]));
 
   // Revert stock changes
@@ -576,17 +635,18 @@ export function deleteTransaction(transactionId: string): void {
     }
   });
 
-  saveProducts(Array.from(productMap.values()));
+  saveProducts(Array.from(productMap.values()), activeOutlet);
 
   const updatedTransactions = currentTransactions.filter((t) => t.id !== transactionId);
-  saveTransactions(updatedTransactions);
-  deleteTransactionFromCloud(transactionId);
+  saveTransactions(updatedTransactions, activeOutlet);
+  deleteTransactionFromCloud(transactionId, activeOutlet);
 
   // Otomatis kirim perintah hapus ke Google Sheet / Apps Script
   sendPayloadToGoogleSheet({
     action: 'DELETE_TRANSACTION',
     id: txToDelete.id,
     type: txToDelete.type,
+    outlet: activeOutlet,
     deletedItems: txToDelete.items,
     timestamp: new Date().toISOString()
   });
