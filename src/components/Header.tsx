@@ -20,8 +20,8 @@ import { SyncStatus, OUTLETS, UserSession } from '../types';
 import { User } from '../lib/firebase';
 
 interface HeaderProps {
-  activeTab: 'dashboard' | 'catalog' | 'transaction' | 'history' | 'settings';
-  setActiveTab: (tab: 'dashboard' | 'catalog' | 'transaction' | 'history' | 'settings') => void;
+  activeTab: 'dashboard' | 'catalog' | 'transaction' | 'history' | 'settings' | 'server-analytics';
+  setActiveTab: (tab: 'dashboard' | 'catalog' | 'transaction' | 'history' | 'settings' | 'server-analytics') => void;
   syncStatus: SyncStatus;
   onSyncNow: () => void;
   currentUser: User | null;
@@ -328,6 +328,20 @@ export const Header: React.FC<HeaderProps> = ({
             <History className="w-4 h-4" />
             <span>Riwayat Transaksi</span>
           </button>
+
+          {isServer && (
+            <button
+              onClick={() => setActiveTab('server-analytics')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+                activeTab === 'server-analytics'
+                  ? 'bg-emerald-600 text-white shadow-md animate-pulse'
+                  : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+              }`}
+            >
+              <Store className="w-4 h-4 text-emerald-600" />
+              <span>👑 Analisis Komparasi All Store</span>
+            </button>
+          )}
 
           <button
             onClick={() => setActiveTab('settings')}

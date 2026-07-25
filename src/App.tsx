@@ -23,6 +23,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { BarcodeScannerModal } from './components/BarcodeScannerModal';
 import { PdfReportModal } from './components/PdfReportModal';
 import { LoginModal } from './components/LoginModal';
+import { ServerAnalyticsView } from './components/ServerAnalyticsView';
 import { 
   auth, 
   loginWithGoogle, 
@@ -34,7 +35,7 @@ import {
 } from './lib/firebase';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'catalog' | 'transaction' | 'history' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'catalog' | 'transaction' | 'history' | 'settings' | 'server-analytics'>('dashboard');
   
   // User Authentication Session state
   const [userSession, setUserSession] = useState<UserSession | null>(() => {
@@ -355,6 +356,16 @@ export default function App() {
             onLoginGoogle={handleLoginGoogle}
             onLogoutGoogle={handleLogoutGoogle}
             isAuthenticating={isAuthenticating}
+          />
+        )}
+
+        {activeTab === 'server-analytics' && (
+          <ServerAnalyticsView
+            onSelectOutlet={(outletName) => {
+              handleOutletChange(outletName);
+              setActiveTab('dashboard');
+            }}
+            onNavigateTab={(tab) => setActiveTab(tab as any)}
           />
         )}
       </main>

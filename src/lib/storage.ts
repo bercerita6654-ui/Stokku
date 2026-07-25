@@ -1,4 +1,4 @@
-import { Product, Transaction, SyncStatus } from '../types';
+import { Product, Transaction, SyncStatus, OUTLETS } from '../types';
 import Papa from 'papaparse';
 import { 
   syncProductsToCloud, 
@@ -806,3 +806,70 @@ export function formatDateIndonesian(dateString: string): string {
     return dateString || '-';
   }
 }
+
+export interface OutletSummary {
+  outletName: string;
+  totalProducts: number;
+  totalStock: number;
+  totalValue: number;
+  totalIncoming: number;
+  totalOutgoing: number;
+  totalRevenue: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  products: Product[];
+  transactions: Transaction[];
+}
+
+export function getAllOutletsSummary(): OutletSummary[] {
+  return OUTLETS.map(outletName => {
+    const products = getStoredProducts(outletName);
+    const transactions = getStoredTransactions(outletName);
+    
+    const totalProducts = products.length;
+    const totalStock = products.reduce((sum, p) => sum + (p.stock || 0), 0);
+    const totalValue = products.reduce((sum, p) => sum + ((p.stock || 0) * (p.price || 0)), 0);
+    
+    let totalIncoming = products.reduce((sum, p) => sum + (p.totalIncoming || 0), 0);
+    let totalOutgoing = products.reduce((sum, p) => sum + (p.totalOutgoing || 0), 0);
+    let totalRevenue = 0;
+    
+    transactions.forEach(t => {
+      if (t.type === 'MASUK' && totalIncoming === 0) {
+        // Fallback calculation if not stored in product sum
+      }
+      if (t.type === 'TERJUAL') {
+        totalRevenue += t.totalAmount || t.items.reduce((acc, item) => acc + item.totalPrice, 0);
+      }
+    });
+
+    // Also sum up from transactions if product incoming/outgoing sums are 0
+    if (totalIncoming === 0 || totalOutgoing === 0) {
+      transactions.forEach(t => {
+        if (t.type === 'MASUK') {
+          totalIncoming += t.totalQuantity;
+        } else if (t.type === 'TERJUAL') {
+          totalOutgoing += t.totalQuantity;
+        }
+      });
+    }
+
+    const lowStockCount = products.filter(p => p.stock <= p.minStock).length;
+    const outOfStockCount = products.filter(p => p.stock === 0).length;
+
+    return {
+      outletName,
+      totalProducts,
+      totalStock,
+      totalValue,
+      totalIncoming,
+      totalOutgoing,
+      totalRevenue,
+      lowStockCount,
+      outOfStockCount,
+      products,
+      transactions
+    };
+  });
+}
+
