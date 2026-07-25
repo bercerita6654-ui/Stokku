@@ -1,5 +1,16 @@
 export type TransactionType = 'MASUK' | 'TERJUAL';
 
+export const OUTLETS = [
+  'Planet gadget 3',
+  'Cellular World canggu',
+  'Cellular World Tengku Umar',
+  'Cellular World Infinity',
+  'Planet gadget 1',
+  'Planet gadget 2'
+] as const;
+
+export type OutletName = typeof OUTLETS[number];
+
 export interface Product {
   id: string;
   barcode1: string;
@@ -15,6 +26,7 @@ export interface Product {
   costPrice: number;
   unit: string;
   updatedAt: string;
+  outlet?: string;
 }
 
 export interface TransactionItem {
@@ -31,6 +43,7 @@ export interface TransactionItem {
 export interface Transaction {
   id: string;
   type: TransactionType;
+  outlet?: string;
   items: TransactionItem[];
   totalItems: number;
   totalQuantity: number;

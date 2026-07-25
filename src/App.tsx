@@ -9,7 +9,10 @@ import {
   getStoredSheetUrl,
   fetchSpreadsheetProductsDirectly,
   saveProducts,
-  saveTransactions
+  saveTransactions,
+  getActiveOutlet,
+  saveActiveOutlet,
+  getOutletStorageKey
 } from './lib/storage';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -18,6 +21,7 @@ import { TransactionForm } from './components/TransactionForm';
 import { TransactionHistory } from './components/TransactionHistory';
 import { SettingsModal } from './components/SettingsModal';
 import { BarcodeScannerModal } from './components/BarcodeScannerModal';
+import { PdfReportModal } from './components/PdfReportModal';
 import { 
   auth, 
   loginWithGoogle, 
@@ -31,6 +35,9 @@ import {
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'catalog' | 'transaction' | 'history' | 'settings'>('dashboard');
   
+  // Active outlet state
+  const [activeOutlet, setActiveOutlet] = useState<string>(getActiveOutlet());
+
   const [products, setProducts] = useState<Product[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(getStoredSyncStatus());
@@ -46,6 +53,14 @@ export default function App() {
   // Scanner modal state
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
+
+  // PDF Report modal state
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+
+  const handleOutletChange = (newOutlet: string) => {
+    saveActiveOutlet(newOutlet);
+    setActiveOutlet(newOutlet);
+  };
 
   // Listen for Firebase Auth state changes
   useEffect(() => {
@@ -77,32 +92,34 @@ export default function App() {
     }
   };
 
-  // Load local storage data and subscribe to real-time Cloud Sync across devices
+  // Load local storage data and subscribe to real-time Cloud Sync for the active outlet
   useEffect(() => {
-    const loadedProds = getStoredProducts();
-    const loadedTrxs = getStoredTransactions();
+    const loadedProds = getStoredProducts(activeOutlet);
+    const loadedTrxs = getStoredTransactions(activeOutlet);
     setProducts(loadedProds);
     setTransactions(loadedTrxs);
 
-    // Real-time Firestore Cloud listener for Products across all devices
+    // Real-time Firestore Cloud listener for Products across all devices for this activeOutlet
     const unsubCloudProducts = subscribeToCloudProducts((cloudProducts) => {
       if (cloudProducts && cloudProducts.length > 0) {
         setProducts(cloudProducts);
         try {
-          localStorage.setItem('stokku_products_v1', JSON.stringify(cloudProducts));
+          const key = getOutletStorageKey('products', activeOutlet);
+          localStorage.setItem(key, JSON.stringify(cloudProducts));
         } catch (e) {}
       }
-    });
+    }, activeOutlet);
 
-    // Real-time Firestore Cloud listener for Transactions across all devices
+    // Real-time Firestore Cloud listener for Transactions across all devices for this activeOutlet
     const unsubCloudTransactions = subscribeToCloudTransactions((cloudTransactions) => {
       if (cloudTransactions && cloudTransactions.length > 0) {
         setTransactions(cloudTransactions);
         try {
-          localStorage.setItem('stokku_transactions_v1', JSON.stringify(cloudTransactions));
+          const key = getOutletStorageKey('transactions', activeOutlet);
+          localStorage.setItem(key, JSON.stringify(cloudTransactions));
         } catch (e) {}
       }
-    });
+    }, activeOutlet);
 
     // Sync with Google Sheets automatically on load
     handleSyncSpreadsheet();
@@ -111,7 +128,7 @@ export default function App() {
       unsubCloudProducts();
       unsubCloudTransactions();
     };
-  }, []);
+  }, [activeOutlet]);
 
   // Sync spreadsheet from backend API or directly from browser (for GitHub Pages/static hosting)
   const handleSyncSpreadsheet = useCallback(async (customUrl?: string) => {
@@ -146,20 +163,20 @@ export default function App() {
           }
           if (data && data.success && Array.isArray(data.transactions) && data.transactions.length > 0) {
             setTransactions(data.transactions);
-            saveTransactions(data.transactions);
+            saveTransactions(data.transactions, activeOutlet);
           }
         }
       } catch (e) {
         console.info('Backend /api/sync-csv unreachable, switching to direct client-side Google Sheet fetch...');
       }
 
-      // 2. If backend proxy wasn't used or returned no products (e.g. static site on GitHub Pages / Vercel), fetch directly in browser
+      // 2. If backend proxy wasn't used or returned no products, fetch directly in browser
       if (!fetchedProducts || fetchedProducts.length === 0) {
         fetchedProducts = await fetchSpreadsheetProductsDirectly(targetUrl);
       }
 
-      // Merge fetched products with local state
-      const merged = mergeSpreadsheetProducts(fetchedProducts || []);
+      // Merge fetched products with local state for activeOutlet
+      const merged = mergeSpreadsheetProducts(fetchedProducts || [], activeOutlet);
       setProducts(merged);
 
       const successStatus: SyncStatus = {
@@ -181,12 +198,12 @@ export default function App() {
       setSyncStatus(errorStatus);
       saveSyncStatus(errorStatus);
     }
-  }, []);
+  }, [activeOutlet]);
 
   // Reload products & transactions when changed
   const refreshData = () => {
-    setProducts(getStoredProducts());
-    setTransactions(getStoredTransactions());
+    setProducts(getStoredProducts(activeOutlet));
+    setTransactions(getStoredTransactions(activeOutlet));
   };
 
   // Handle navigation with options
@@ -228,6 +245,8 @@ export default function App() {
         onLoginGoogle={handleLoginGoogle}
         onLogoutGoogle={handleLogoutGoogle}
         isAuthenticating={isAuthenticating}
+        activeOutlet={activeOutlet}
+        onOutletChange={handleOutletChange}
       />
 
       {/* Main View Area */}
@@ -236,29 +255,34 @@ export default function App() {
           <DashboardOverview
             products={products}
             transactions={transactions}
+            activeOutlet={activeOutlet}
             onNavigate={handleNavigate}
             onOpenScanner={() => setIsScannerOpen(true)}
             onSyncNow={() => handleSyncSpreadsheet()}
             isSyncing={syncStatus.status === 'syncing'}
             onClearTransactions={() => {
-              saveTransactions([]);
+              saveTransactions([], activeOutlet);
               refreshData();
             }}
+            onOpenPdfModal={() => setIsPdfModalOpen(true)}
           />
         )}
 
         {activeTab === 'catalog' && (
           <ProductCatalog
             products={products}
+            activeOutlet={activeOutlet}
             onProductsUpdated={(updated) => setProducts(updated)}
             onFastTransaction={handleFastTransaction}
             onOpenScanner={() => setIsScannerOpen(true)}
+            onOpenPdfModal={() => setIsPdfModalOpen(true)}
           />
         )}
 
         {activeTab === 'transaction' && (
           <TransactionForm
             products={products}
+            activeOutlet={activeOutlet}
             initialType={transactionType}
             initialProduct={selectedProductForTrx}
             onTransactionSaved={refreshData}
@@ -271,7 +295,12 @@ export default function App() {
         )}
 
         {activeTab === 'history' && (
-          <TransactionHistory transactions={transactions} onRefreshData={refreshData} />
+          <TransactionHistory
+            transactions={transactions}
+            activeOutlet={activeOutlet}
+            onRefreshData={refreshData}
+            onOpenPdfModal={() => setIsPdfModalOpen(true)}
+          />
         )}
 
         {activeTab === 'settings' && (
@@ -295,6 +324,15 @@ export default function App() {
           setScannedBarcode(code);
           setActiveTab('transaction');
         }}
+      />
+
+      {/* PDF Report Modal */}
+      <PdfReportModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        products={products}
+        transactions={transactions}
+        activeOutlet={activeOutlet}
       />
 
       {/* Footer */}
