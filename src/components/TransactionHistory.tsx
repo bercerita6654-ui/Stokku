@@ -377,6 +377,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                           e.stopPropagation();
                           setEditingTx({
                             ...tx,
+                            createdAt: tx.createdAt || new Date().toISOString(),
                             items: tx.items.map((i) => ({ ...i }))
                           });
                         }}

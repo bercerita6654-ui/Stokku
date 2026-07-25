@@ -434,7 +434,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       return ContentService.createTextOutput(JSON.stringify({ success: true, action: 'DELETE_TRANSACTION', deletedRows: deletedRowsCount })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // 3. Tambah Transaksi Baru (Default)
+    // 3. Tambah atau Update Transaksi (ADD_TRANSACTION / UPDATE_TRANSACTION)
     var sheet = ss.getSheetByName('Update Stok') || ss.getSheetByName('update stok') || ss.getSheetByName('UPDATE STOK') || ss.getSheetByName('Transaksi') || ss.insertSheet('Update Stok');
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(['Waktu', 'ID Transaksi', 'Outlet', 'Tipe', 'Nama Produk', 'Barcode', 'Jumlah (Qty)', 'Harga Satuan', 'Subtotal', 'Operator', 'Catatan']);
@@ -442,22 +442,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
     
     var timestamp = new Date();
+    if (data.createdAt) {
+      var parsedDate = new Date(data.createdAt);
+      if (!isNaN(parsedDate.getTime())) {
+        timestamp = parsedDate;
+      }
+    }
     var type = data.type || 'MASUK';
     var outlet = data.outlet || 'Planet gadget 3';
     var operator = data.operator || 'Admin';
     var note = data.note || '';
+    var transactionId = data.id || '';
+
+    // Jika ada ID Transaksi, hapus baris lama terlebih dahulu agar edit/update tidak membuat baris duplikat atau bergeser
+    if (transactionId) {
+      var lastRow = sheet.getLastRow();
+      var lastCol = sheet.getLastColumn();
+      if (lastRow >= 2 && lastCol >= 1) {
+        for (var r = lastRow; r >= 2; r--) {
+          var rowVals = sheet.getRange(r, 1, 1, lastCol).getValues()[0].map(function(v){ return v.toString().trim(); });
+          var rowStr = rowVals.join(' ');
+          if (rowStr.indexOf(transactionId.toString().trim()) !== -1) {
+            sheet.deleteRow(r);
+          }
+        }
+      }
+    }
     
     if (data.items && Array.isArray(data.items)) {
       data.items.forEach(function(item) {
         sheet.appendRow([
           timestamp,
-          data.id,
+          transactionId,
           outlet,
           type,
           item.productName || '',
-          item.barcode || '',
+          item.barcode || item.barcode1 || '',
           item.quantity || 1,
-          item.unitPrice || 0,
+          item.unitPrice || item.price || 0,
           item.subtotal || 0,
           operator,
           note
@@ -465,7 +487,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       });
     }
     
-    return ContentService.createTextOutput(JSON.stringify({ success: true }))
+    return ContentService.createTextOutput(JSON.stringify({ success: true, action: action }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))

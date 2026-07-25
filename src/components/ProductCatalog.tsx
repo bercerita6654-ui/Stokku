@@ -74,7 +74,9 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     category: 'Umum',
     stock: 0,
     minStock: 5,
-    unit: 'Pcs'
+    unit: 'Pcs',
+    price: 0,
+    costPrice: 0
   });
 
   // Filtered Products
@@ -109,10 +111,13 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
     if (!editingProduct) return;
     const formattedProduct = {
       ...editingProduct,
-      photoUrl: formatPhotoUrl(editingProduct.photoUrl)
+      photoUrl: formatPhotoUrl(editingProduct.photoUrl),
+      price: Number(editingProduct.price) || 0,
+      costPrice: Number(editingProduct.costPrice) || 0,
+      outlet: activeOutlet
     };
     const updated = products.map((p) => (p.id === editingProduct.id ? formattedProduct : p));
-    saveProducts(updated);
+    saveProducts(updated, activeOutlet);
     onProductsUpdated(updated);
     setEditingProduct(null);
   };
@@ -146,14 +151,15 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
       category: newProductForm.category || 'Umum',
       stock: Number(newProductForm.stock) || 0,
       minStock: Number(newProductForm.minStock) || 5,
-      price: 0,
-      costPrice: 0,
+      price: Number(newProductForm.price) || 0,
+      costPrice: Number(newProductForm.costPrice) || 0,
       unit: newProductForm.unit || 'Pcs',
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      outlet: activeOutlet
     };
 
     const updated = [newProd, ...products];
-    saveProducts(updated);
+    saveProducts(updated, activeOutlet);
     onProductsUpdated(updated);
     setIsNewProductModal(false);
     setNewProductForm({
@@ -164,7 +170,9 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
       category: 'Umum',
       stock: 0,
       minStock: 5,
-      unit: 'Pcs'
+      unit: 'Pcs',
+      price: 0,
+      costPrice: 0
     });
   };
 
@@ -561,6 +569,11 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                       <span>-{product.totalOutgoing ?? 0}</span>
                     </div>
                   </div>
+
+                  <div className="pt-1 border-t border-zinc-200/40 flex items-center justify-between text-xs">
+                    <span className="text-zinc-500 text-[11px]">Harga Jual:</span>
+                    <span className="font-bold text-emerald-700">{formatRupiah(product.price)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -676,6 +689,10 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
 
                     <td className="py-2.5 px-3 font-semibold text-rose-700 whitespace-nowrap">
                       -{product.totalOutgoing ?? 0}
+                    </td>
+
+                    <td className="py-2.5 px-3 font-bold text-emerald-700 whitespace-nowrap">
+                      {formatRupiah(product.price)}
                     </td>
 
                     <td className="py-2.5 px-3 whitespace-nowrap">
@@ -820,6 +837,27 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                   />
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div>
+                  <label className="block text-zinc-600 font-medium mb-1">Harga Jual (Rp)</label>
+                  <input
+                    type="number"
+                    value={editingProduct.price || 0}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, price: Number(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl font-bold text-emerald-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-600 font-medium mb-1">Harga Beli / Modal (Rp)</label>
+                  <input
+                    type="number"
+                    value={editingProduct.costPrice || 0}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, costPrice: Number(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl font-bold text-zinc-800"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
@@ -930,6 +968,27 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                     onChange={(e) => setNewProductForm({ ...newProductForm, unit: e.target.value })}
                     placeholder="Pcs, Box, Pack..."
                     className="w-full px-3 py-2 border border-zinc-200 rounded-xl text-zinc-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div>
+                  <label className="block text-zinc-600 font-medium mb-1">Harga Jual (Rp)</label>
+                  <input
+                    type="number"
+                    value={newProductForm.price}
+                    onChange={(e) => setNewProductForm({ ...newProductForm, price: Number(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl font-bold text-emerald-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-600 font-medium mb-1">Harga Beli / Modal (Rp)</label>
+                  <input
+                    type="number"
+                    value={newProductForm.costPrice}
+                    onChange={(e) => setNewProductForm({ ...newProductForm, costPrice: Number(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-xl font-bold text-zinc-800"
                   />
                 </div>
               </div>

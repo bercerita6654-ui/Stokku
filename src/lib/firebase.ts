@@ -163,9 +163,7 @@ export function subscribeToCloudProducts(
       snapshot.forEach((docSnap) => {
         items.push(docSnap.data() as Product);
       });
-      if (items.length > 0) {
-        onUpdate(items);
-      }
+      onUpdate(items);
     },
     (error) => {
       console.warn('Cloud Products subscription listener error:', error);
@@ -189,10 +187,8 @@ export function subscribeToCloudTransactions(
       snapshot.forEach((docSnap) => {
         items.push(docSnap.data() as Transaction);
       });
-      items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      if (items.length > 0) {
-        onUpdate(items);
-      }
+      items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      onUpdate(items);
     },
     (error) => {
       console.warn('Cloud Transactions subscription listener error:', error);

@@ -101,24 +101,20 @@ export default function App() {
 
     // Real-time Firestore Cloud listener for Products across all devices for this activeOutlet
     const unsubCloudProducts = subscribeToCloudProducts((cloudProducts) => {
-      if (cloudProducts && cloudProducts.length > 0) {
-        setProducts(cloudProducts);
-        try {
-          const key = getOutletStorageKey('products', activeOutlet);
-          localStorage.setItem(key, JSON.stringify(cloudProducts));
-        } catch (e) {}
-      }
+      setProducts(cloudProducts || []);
+      try {
+        const key = getOutletStorageKey(activeOutlet, 'products');
+        localStorage.setItem(key, JSON.stringify(cloudProducts || []));
+      } catch (e) {}
     }, activeOutlet);
 
     // Real-time Firestore Cloud listener for Transactions across all devices for this activeOutlet
     const unsubCloudTransactions = subscribeToCloudTransactions((cloudTransactions) => {
-      if (cloudTransactions && cloudTransactions.length > 0) {
-        setTransactions(cloudTransactions);
-        try {
-          const key = getOutletStorageKey('transactions', activeOutlet);
-          localStorage.setItem(key, JSON.stringify(cloudTransactions));
-        } catch (e) {}
-      }
+      setTransactions(cloudTransactions || []);
+      try {
+        const key = getOutletStorageKey(activeOutlet, 'transactions');
+        localStorage.setItem(key, JSON.stringify(cloudTransactions || []));
+      } catch (e) {}
     }, activeOutlet);
 
     // Sync with Google Sheets automatically on load

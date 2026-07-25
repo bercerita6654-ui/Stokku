@@ -18,7 +18,7 @@ const STORAGE_KEYS = {
 };
 
 export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1MKWMahA8GArLnFQH01wYNqKOoXjfG9qYnFYP-2nurC8/edit?gid=410498483#gid=410498483';
-export const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxW1SRfxnEQ88ximFcs7kNJhreteT7MzCcxATYgTZ7NM5UGlsGeQFcA-rWjCeC5VTI/exec';
+export const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbymZVXLgLz2aivcBwAm16Nof-vRn3AwNSrxnILzIFDICYB6Xe96P46K72QXMg1JEfqh/exec';
 
 export function normalizeGoogleSheetCsvUrl(url: string): string {
   if (!url) return DEFAULT_SHEET_URL;
@@ -259,7 +259,11 @@ export async function fetchSpreadsheetProductsDirectly(rawUrl: string): Promise<
 
 export function getStoredAppsScriptUrl(): string {
   if (typeof window === 'undefined') return DEFAULT_APPS_SCRIPT_URL;
-  return localStorage.getItem(STORAGE_KEYS.APPS_SCRIPT_URL) || DEFAULT_APPS_SCRIPT_URL;
+  const stored = localStorage.getItem(STORAGE_KEYS.APPS_SCRIPT_URL);
+  if (!stored || stored.includes('AKfycbxW1SRfxnEQ88ximFcs7kNJhreteT7MzCcxATYgTZ7NM5UGlsGeQFcA-rWjCeC5VTI')) {
+    return DEFAULT_APPS_SCRIPT_URL;
+  }
+  return stored;
 }
 
 export function saveAppsScriptUrl(url: string): void {
@@ -655,13 +659,14 @@ export function deleteTransaction(transactionId: string, outlet?: string): void 
 /**
  * Updates an existing transaction and adjusts product stock accordingly.
  */
-export function updateTransaction(updatedTx: Transaction): void {
-  const currentTransactions = getStoredTransactions();
+export function updateTransaction(updatedTx: Transaction, outlet?: string): void {
+  const activeOutlet = outlet || updatedTx.outlet || getActiveOutlet();
+  const currentTransactions = getStoredTransactions(activeOutlet);
   const oldTxIndex = currentTransactions.findIndex((t) => t.id === updatedTx.id);
   if (oldTxIndex === -1) return;
 
   const oldTx = currentTransactions[oldTxIndex];
-  const currentProducts = getStoredProducts();
+  const currentProducts = getStoredProducts(activeOutlet);
   const productMap = new Map(currentProducts.map((p) => [p.id, { ...p }]));
 
   // 1. Revert old transaction stock
@@ -689,20 +694,24 @@ export function updateTransaction(updatedTx: Transaction): void {
     }
   });
 
-  saveProducts(Array.from(productMap.values()));
+  saveProducts(Array.from(productMap.values()), activeOutlet);
 
   // 3. Save updated transaction list
   currentTransactions[oldTxIndex] = {
     ...updatedTx,
+    createdAt: updatedTx.createdAt || oldTx.createdAt || new Date().toISOString(),
+    outlet: activeOutlet,
     totalQuantity: updatedTx.items.reduce((acc, i) => acc + i.quantity, 0),
     totalItems: updatedTx.items.length
   };
-  saveTransactions(currentTransactions);
+  saveTransactions(currentTransactions, activeOutlet);
 
   // Send update notice to Apps Script if configured
-  sendTransactionToGoogleSheet({
+  sendPayloadToGoogleSheet({
     ...updatedTx,
-    note: `[REVISI EDIT] ${updatedTx.note}`
+    action: 'UPDATE_TRANSACTION',
+    outlet: activeOutlet,
+    note: updatedTx.note
   });
 }
 
@@ -762,7 +771,11 @@ export function formatRupiah(amount: number): string {
 
 export function formatDateIndonesian(dateString: string): string {
   try {
+    if (!dateString) return '-';
     const date = new Date(dateString);
+    if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
+      return dateString || '-';
+    }
     return new Intl.DateTimeFormat('id-ID', {
       day: 'numeric',
       month: 'short',
@@ -771,6 +784,6 @@ export function formatDateIndonesian(dateString: string): string {
       minute: '2-digit'
     }).format(date);
   } catch (e) {
-    return dateString;
+    return dateString || '-';
   }
 }
