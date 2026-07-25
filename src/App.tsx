@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Product, Transaction, SyncStatus, TransactionType } from './types';
+import { Product, Transaction, SyncStatus, TransactionType, UserSession } from './types';
 import { 
   getStoredProducts, 
   getStoredTransactions, 
@@ -22,6 +22,7 @@ import { TransactionHistory } from './components/TransactionHistory';
 import { SettingsModal } from './components/SettingsModal';
 import { BarcodeScannerModal } from './components/BarcodeScannerModal';
 import { PdfReportModal } from './components/PdfReportModal';
+import { LoginModal } from './components/LoginModal';
 import { 
   auth, 
   loginWithGoogle, 
@@ -35,8 +36,30 @@ import {
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'catalog' | 'transaction' | 'history' | 'settings'>('dashboard');
   
+  // User Authentication Session state
+  const [userSession, setUserSession] = useState<UserSession | null>(() => {
+    try {
+      const saved = localStorage.getItem('stokku_auth_session_v1');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {}
+    return null;
+  });
+
   // Active outlet state
-  const [activeOutlet, setActiveOutlet] = useState<string>(getActiveOutlet());
+  const [activeOutlet, setActiveOutlet] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('stokku_auth_session_v1');
+      if (saved) {
+        const session: UserSession = JSON.parse(saved);
+        if (session.role === 'outlet' && session.outletName) {
+          return session.outletName;
+        }
+      }
+    } catch (e) {}
+    return getActiveOutlet();
+  });
 
   const [products, setProducts] = useState<Product[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -58,8 +81,17 @@ export default function App() {
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   const handleOutletChange = (newOutlet: string) => {
+    if (userSession?.role === 'outlet' && userSession.outletName && newOutlet !== userSession.outletName) {
+      alert(`Akun outlet ${userSession.outletName} hanya dapat mengakses data toko ini.`);
+      return;
+    }
     saveActiveOutlet(newOutlet);
     setActiveOutlet(newOutlet);
+  };
+
+  const handleLogoutSession = () => {
+    localStorage.removeItem('stokku_auth_session_v1');
+    setUserSession(null);
   };
 
   // Listen for Firebase Auth state changes
@@ -158,8 +190,10 @@ export default function App() {
             fetchedProducts = data.products;
           }
           if (data && data.success && Array.isArray(data.transactions) && data.transactions.length > 0) {
-            setTransactions(data.transactions);
-            saveTransactions(data.transactions, activeOutlet);
+            if (activeOutlet === 'Planet gadget 3') {
+              setTransactions(data.transactions);
+              saveTransactions(data.transactions, activeOutlet);
+            }
           }
         }
       } catch (e) {
@@ -231,6 +265,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-zinc-50/90 text-zinc-900 font-sans antialiased flex flex-col">
+      {!userSession && (
+        <LoginModal
+          onLoginSuccess={(session) => {
+            setUserSession(session);
+            if (session.role === 'outlet' && session.outletName) {
+              handleOutletChange(session.outletName);
+            }
+          }}
+        />
+      )}
+
       {/* Navigation Header */}
       <Header
         activeTab={activeTab}
@@ -243,6 +288,8 @@ export default function App() {
         isAuthenticating={isAuthenticating}
         activeOutlet={activeOutlet}
         onOutletChange={handleOutletChange}
+        userSession={userSession}
+        onLogoutSession={handleLogoutSession}
       />
 
       {/* Main View Area */}

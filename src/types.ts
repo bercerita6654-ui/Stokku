@@ -1,3 +1,25 @@
+export interface UserSession {
+  role: 'server' | 'outlet';
+  username: string;
+  outletName?: string;
+  name: string;
+}
+
+export const OUTLET_ACCOUNTS: Record<string, { username: string; defaultPass: string; label: string }> = {
+  'Planet gadget 3': { username: 'planetgadget3', defaultPass: 'pg3_pass2026', label: 'Planet gadget 3' },
+  'Cellular World canggu': { username: 'canggu', defaultPass: 'canggu_pass2026', label: 'Cellular World canggu' },
+  'Cellular World Tengku Umar': { username: 'tengkuumar', defaultPass: 'tengkuumar_pass2026', label: 'Cellular World Tengku Umar' },
+  'Cellular World Infinity': { username: 'infinity', defaultPass: 'infinity_pass2026', label: 'Cellular World Infinity' },
+  'Planet gadget 1': { username: 'planetgadget1', defaultPass: 'pg1_pass2026', label: 'Planet gadget 1' },
+  'Planet gadget 2': { username: 'planetgadget2', defaultPass: 'pg2_pass2026', label: 'Planet gadget 2' },
+};
+
+export const SERVER_ACCOUNT = {
+  username: 'server',
+  defaultPass: 'server_master2026',
+  label: 'Server (Full Access All Stores)'
+};
+
 export type TransactionType = 'MASUK' | 'TERJUAL';
 
 export const OUTLETS = [
